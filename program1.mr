@@ -1,0 +1,61 @@
+JUMP 28
+LOADI 2	# x:=a	# gcd
+STORE 5
+LOADI 3	# y:=b
+STORE 6
+LOAD 6	# WHILE y>0
+JPOS 2
+JUMP 18
+LOAD 5	# x>=y
+SUB 6
+JNEG 5
+LOAD 5	# x:=x-y
+SUB 6
+STORE 5
+JUMP 10
+LOAD 5	# x:=x+y
+ADD 6
+STORE 5
+LOAD 5	# y:=x-y
+SUB 6
+STORE 6
+LOAD 5	# x:=x-y
+SUB 6
+STORE 5
+JUMP -19	# ENDWHILE 
+LOAD 5	# c:=x
+STOREI 4
+RTRN 1	# return gcd
+GET 7	# READ a
+GET 8	# READ b
+GET 9	# READ c
+GET 10	# READ d
+SET 7	# gcd(a,b,x)
+STORE 2
+SET 8
+STORE 3
+SET 11
+STORE 4
+SET 41	# set return
+STORE 1
+JUMP -39	# call gcd
+SET 9	# gcd(c,d,y)
+STORE 2
+SET 10
+STORE 3
+SET 12
+STORE 4
+SET 50	# set return
+STORE 1
+JUMP -48	# call gcd
+SET 11	# gcd(x,y,z)
+STORE 2
+SET 12
+STORE 3
+SET 13
+STORE 4
+SET 59	# set return
+STORE 1
+JUMP -57	# call gcd
+PUT 13
+HALT

@@ -1,0 +1,93 @@
+JUMP 74
+SET 2	# FOR i	# licz
+STORE 5
+SET -2	# i'
+ADDI 3
+STORE 6
+JNEG 13	# FOR
+LOADI 2	# addr s[i]
+ADD 5
+STORE 7
+SET 1	# s[i] := 1
+STOREI 7
+SET 1	# i++
+ADD 5
+STORE 5
+SET -1	# i'--
+ADD 6
+STORE 6
+JUMP -12	# ENDFOR
+SET 2	# FOR i
+STORE 5
+SET -2	# i'
+ADDI 3
+STORE 6
+JNEG 28	# FOR
+LOADI 2	# addr s[i]
+ADD 5
+STORE 7
+LOADI 7	# s[i]>0
+JZERO 16
+LOAD 5	# j:=i+i
+ADD 5
+STORE 4
+LOADI 3	# WHILE
+SUB 4
+JNEG 10
+LOADI 2	# s[j]:=0
+ADD 4
+STORE 7
+SET 0
+STOREI 7
+LOAD 4
+ADD 5
+STORE 4
+JUMP -11	# ENDWHILE
+SET 1	# i++
+ADD 5
+STORE 5
+SET -1	# i'--
+ADD 6
+STORE 6
+JUMP -27	# ENDFOR
+RTRN 1	# return licz
+LOADI 10	# FOR i	# wypisz
+STORE 11
+SET -2	# i'
+ADDI 10
+STORE 12
+JNEG 15
+LOADI 9	# addr s[i]
+ADD 11
+STORE 13
+LOADI 13
+JPOS 2
+JUMP 2
+PUT 11
+SET -1	# i--
+ADD 11
+STORE 11
+SET -1	# i'--
+ADD 12
+STORE 12
+JUMP -14	# ENDFOR
+RTRN 8	# return wypisz
+SET 13	# s[0] 2-15:100-113
+STORE 14
+SET 100	# n:=100
+STORE 114
+SET 14	# licz(s,n)
+STORE 2
+SET 114
+STORE 3
+SET 85	# set return
+STORE 1
+JUMP -83	# call licz
+SET 14	# wypisz(s,n)
+STORE 9
+SET 114
+STORE 10
+SET 92	# set return
+STORE 8
+JUMP -38	#call wypisz
+HALT

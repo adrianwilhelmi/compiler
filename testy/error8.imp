@@ -1,0 +1,10 @@
+# błąd: próba modyfikacji iteratora pętli FOR w linii 8
+PROGRAM IS
+ a,b
+BEGIN
+  READ a;
+  READ b;
+  FOR i FROM a TO b DO
+    i:=1;
+  ENDFOR
+END
