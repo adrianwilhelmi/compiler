@@ -1,0 +1,24 @@
+# prosta translacja 
+# n -> P1, p -> P2
+GET 1	# READ n
+LOAD 1	# p:=n/2
+HALF
+STORE 2
+LOAD 2	# p:=2*p
+ADD 2
+STORE 2
+LOAD 1	#  n>p
+SUB 2
+JPOS 4
+SET 0	# WRITE 0
+PUT 0
+JUMP 3
+SET 1	# WRITE 1
+PUT 0
+LOAD 1	# n:=n/2
+HALF
+STORE 1
+LOAD 1	# n=0
+JZERO 2
+JUMP -19# REPEAT
+HALT
