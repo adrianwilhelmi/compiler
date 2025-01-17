@@ -1,108 +1,153 @@
 {
-module Lexer where
-{
+module Lexer (Token(..), AlexPosn(..), alexScanTokens, token_posn) where
+}
 
-%token
+%wrapper "posn"
 
 tokens :-
 
-	-- keywords
-	"PROGRAM"	{\s -> Program}
-	"IS"		{\s -> Is}
-	"BEGIN"		{\s -> Begin}
-	"END"		{\s -> End}
-	"PROCEDURE"	{\s -> Procedure}
-	"FOR"		{\s -> For}
-	"TO"		{\s -> To}
-	"DOWNTO"	{\s -> DownTo}
-	"DO"		{\s -> Do}
-	"REPEAT"	{\s -> Repeat}
-	"UNTIL"		{\s -> Until}
-	"IF"		{\s -> If}
-	"THEN"		{\s -> Then}
-	"ELSE"		{\s -> Else}
-	"ENDIF"		{\s -> EndIf}
-	"WHILE"		{\s -> While}
-	"ENDWHILE"	{\s -> EndWhile}
-	"READ"		{\s -> Read}
-	"WRITE"		{\s -> Write}
-	"HALT"		{\s -> Halt}
+	--whitespace
+	$white+		;
 
-	-- ops & symbols
-	":="		{\s -> Assign}
-	"+"		{\s -> Plus}
-	"-"		{\s -> Minus}
-	"*"		{\s -> Mul}
-	"/"		{\s -> Div}
-	"%"		{\s -> Mod}
-	"="		{\s -> Eq}
-	"!="		{\s -> NEq}
-	"<="		{\s -> LEq}
-	">="		{\s -> GEq}
-	"<"		{\s -> Less}
-	">"		{\s -> Greater}
-	","		{\s -> Comma}
-	";"		{\s -> Semicolon}
-	"("		{\s -> LParen}
-	")"		{\s -> RParen}
-	"["		{\s -> LBracket}
-	"]"		{\s -> RBracket}
+	--comments
+	"#" .*		;
+
+	--keywords
+	"PROGRAM"	{\p _ -> Program p}
+	"IS"		{\p _ -> Is p}
+	"BEGIN"		{\p _ -> Begin p}
+	"END"		{\p _ -> End p}
+	"PROCEDURE"	{\p _ -> Procedure p}
+	"FOR"		{\p _ -> For p}
+	"FROM"		{\p _ -> From p}
+	"TO"		{\p _ -> To p}
+	"DOWNTO"	{\p _ -> DownTo p}
+	"DO"		{\p _ -> Do p}
+	"REPEAT"	{\p _ -> Repeat p}
+	"UNTIL"		{\p _ -> Until p}
+	"IF"		{\p _ -> If p}
+	"THEN"		{\p _ -> Then p}
+	"ELSE"		{\p _ -> Else p}
+	"ENDIF"		{\p _ -> EndIf p}
+	"WHILE"		{\p _ -> While p}
+	"ENDWHILE"	{\p _ -> EndWhile p}
+	"READ"		{\p _ -> Read p}
+	"WRITE"		{\p _ -> Write p}
+	"HALT"		{\p _ -> Halt p}
+
+	--ops and symbols
+	":="		{\p _ -> Assign p}
+	"+"		{\p _ -> Plus p}
+	"-"		{\p _ -> Minus p}
+	"*"		{\p _ -> Mul p}
+	"/"		{\p _ -> Div p}
+	"%"		{\p _ -> Mod p}
+	"="		{\p _ -> Eq p}
+	"!="		{\p _ -> NEq p}
+	"<="		{\p _ -> LEq p}
+	">="		{\p _ -> GEq p}
+	"<"		{\p _ -> Less p}
+	">"		{\p _ -> Greater p}
+	","		{\p _ -> Comma p}
+	";"		{\p _ -> Semicolon p}
+	"("		{\p _ -> LParen p}
+	")"		{\p _ -> RParen p}
+	"["		{\p _ -> LBracket p}
+	"]"		{\p _ -> RBracket p}
 
 	-- identifiers
-	[_a-z][_a-z0-9]* {\s Identifier s}
-	
+	[_a-z][_a-z0-9]*	{\p s -> Identifier p s}
+
 	-- nums
-	[0-9]+		{\s -> Numer (read s) }
+	[0-9]+		{\p s -> Number p (read s::Int)}
 
-	-- comments
-	"#" .*		{\_ -> Comment}
-
-	-- white space
-	[ \t\n]+	{\_ -> WhiteSpace}
 
 {
 data Token
-	= Program
-	| Is
-	| Begin
-	| End
-	| Procedure
-	| For
-	| To
-	| DownTo
-	| Do
-	| Repeat
-	| Until
-	| If
-	| Then
-	| Else
-	| EndIf
-	| While
-	| EndWhile
-	| Read
-	| Write
-	| Halt	
-	| Assign
-	| Plus
-	| Minus
-	| Mul
-	| Div
-	| Mod
-	| Eq
-	| NEq
-	| LEq
-	| GEq
-	| Less
-	| Greater
-	| Comma
-	| Semicolon
-	| LParen
-	| RParen
-	| LBracket
-	| RBracket
-	| Identifier String
-	| Number Int
-	| Comment
-	| WhiteSpace
-	deriving (Show, Eq)
+	= Program AlexPosn
+	| Is AlexPosn
+	| Begin AlexPosn
+	| End AlexPosn
+	| Procedure AlexPosn
+	| For AlexPosn
+	| From AlexPosn
+	| To AlexPosn
+	| DownTo AlexPosn
+	| Do AlexPosn
+	| Repeat AlexPosn
+	| Until AlexPosn
+	| If AlexPosn
+	| Then AlexPosn
+	| Else AlexPosn
+	| EndIf AlexPosn
+	| While AlexPosn
+	| EndWhile AlexPosn
+	| Read AlexPosn
+	| Write AlexPosn
+	| Halt AlexPosn
+	| Assign AlexPosn
+	| Plus AlexPosn
+	| Minus AlexPosn
+	| Mul AlexPosn
+	| Div AlexPosn
+	| Mod AlexPosn
+	| Eq AlexPosn
+	| NEq AlexPosn
+	| LEq AlexPosn
+	| GEq AlexPosn
+	| Less AlexPosn
+	| Greater AlexPosn
+	| Comma AlexPosn
+	| Semicolon AlexPosn
+	| LParen AlexPosn
+	| RParen AlexPosn
+	| LBracket AlexPosn
+	| RBracket AlexPosn
+	| Identifier AlexPosn String
+	| Number AlexPosn Int
+	deriving (Eq, Show)
+
+-- extract position from token
+token_posn (Program p)	   = p
+token_posn (Is p)          = p
+token_posn (Begin p)       = p
+token_posn (End p)         = p
+token_posn (Procedure p)   = p
+token_posn (For p)         = p
+token_posn (From p)	   = p
+token_posn (To p)          = p
+token_posn (DownTo p)      = p
+token_posn (Do p)          = p
+token_posn (Repeat p)      = p
+token_posn (Until p)       = p
+token_posn (If p)          = p
+token_posn (Then p)        = p
+token_posn (Else p)        = p
+token_posn (EndIf p)       = p
+token_posn (While p)       = p
+token_posn (EndWhile p)    = p
+token_posn (Read p)        = p
+token_posn (Write p)       = p
+token_posn (Halt p)        = p
+token_posn (Assign p)      = p
+token_posn (Plus p)        = p
+token_posn (Minus p)       = p
+token_posn (Mul p)         = p
+token_posn (Div p)         = p
+token_posn (Mod p)         = p
+token_posn (Eq p)          = p
+token_posn (NEq p)         = p
+token_posn (LEq p)         = p
+token_posn (GEq p)         = p
+token_posn (Less p)        = p
+token_posn (Greater p)     = p
+token_posn (Comma p)       = p
+token_posn (Semicolon p)   = p
+token_posn (LParen p)      = p
+token_posn (RParen p)      = p
+token_posn (LBracket p)    = p
+token_posn (RBracket p)    = p
+token_posn (Identifier p _) = p
+token_posn (Number p _)    = p
 }
+
