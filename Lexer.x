@@ -55,12 +55,17 @@ tokens :-
 	"["		{\p _ -> LBracket p}
 	"]"		{\p _ -> RBracket p}
 
+	-- table parameter identifier
+	"T "[_a-z][_a-z0-9]*	{\p s -> TPIdentifier p s}
+
+	-- table definition identifier
+	[_a-z][_a-z0-9]* "[" "-"?[0-9]+ ":" "-"?[0-9]+ "]" {\p s -> TDIdentifier p s}
+
 	-- identifiers
 	[_a-z][_a-z0-9]*	{\p s -> Identifier p s}
 
 	-- nums
 	[0-9]+		{\p s -> Number p (read s::Int)}
-
 
 {
 data Token
@@ -103,6 +108,8 @@ data Token
 	| RParen AlexPosn
 	| LBracket AlexPosn
 	| RBracket AlexPosn
+	| TPIdentifier AlexPosn String
+	| TDIdentifier AlexPosn String
 	| Identifier AlexPosn String
 	| Number AlexPosn Int
 	deriving (Eq, Show)
@@ -147,6 +154,8 @@ token_posn (LParen p)      = p
 token_posn (RParen p)      = p
 token_posn (LBracket p)    = p
 token_posn (RBracket p)    = p
+token_posn (TPIdentifier p _) = p
+token_posn (TDIdentifier p _) = p
 token_posn (Identifier p _) = p
 token_posn (Number p _)    = p
 }
