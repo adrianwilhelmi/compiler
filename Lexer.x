@@ -19,6 +19,7 @@ tokens :-
 	"END"		{\p _ -> End p}
 	"PROCEDURE"	{\p _ -> Procedure p}
 	"FOR"		{\p _ -> For p}
+	"ENDFOR"	{\p _ -> EndFor p}
 	"FROM"		{\p _ -> From p}
 	"TO"		{\p _ -> To p}
 	"DOWNTO"	{\p _ -> DownTo p}
@@ -73,6 +74,7 @@ data Token
 	| End AlexPosn
 	| Procedure AlexPosn
 	| For AlexPosn
+	| EndFor AlexPosn
 	| From AlexPosn
 	| To AlexPosn
 	| DownTo AlexPosn
@@ -108,7 +110,6 @@ data Token
 	| RBracket AlexPosn
 	| Colon	AlexPosn
 	| TPIdentifier AlexPosn String
-	| TDIdentifier AlexPosn String
 	| Identifier AlexPosn String
 	| Number AlexPosn Int
 	deriving (Eq, Show)
@@ -120,6 +121,7 @@ token_posn (Begin p)       = p
 token_posn (End p)         = p
 token_posn (Procedure p)   = p
 token_posn (For p)         = p
+token_posn (EndFor p)      = p
 token_posn (From p)	   = p
 token_posn (To p)          = p
 token_posn (DownTo p)      = p
@@ -155,7 +157,6 @@ token_posn (LBracket p)    = p
 token_posn (RBracket p)    = p
 token_posn (Colon p)	   = p
 token_posn (TPIdentifier p _) = p
-token_posn (TDIdentifier p _) = p
 token_posn (Identifier p _) = p
 token_posn (Number p _)    = p
 }

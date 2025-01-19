@@ -6,27 +6,70 @@ import AST
 }
 
 %name parse
-%tokentype {Token}
-%error {parseError}
+%tokentype { Token }
+%error { parseError }
+
+%token
+	Procedure	{ Procedure $$ }
+	Program		{ Program $$ }
+	Is		{ Is $$ }
+	Begin		{ Begin $$ }
+	End		{ End $$ }
+	Assign		{ Assign $$ }
+	If		{ If $$ }
+	Then		{ Then $$ }
+	Else		{ Else $$ }
+	EndIf		{ EndIf $$ }
+	While		{ While $$ }
+	EndWhile	{ EndWhile $$ }
+	Repeat		{ Repeat $$ }
+	Until		{ Until $$ }
+	From		{ From $$ }
+	To		{ To $$ }
+	DownTo		{ DownTo $$ }
+	Do		{ Do $$ }
+	For		{ For $$ }
+	EndFor		{ EndFor $$ }
+	Read		{ Read $$ }
+	Write		{ Write $$ }
+	Semicolon	{ Semicolon $$ }
+	LParen		{ LParen $$ }
+	RParen		{ RParen $$ }
+	Colon		{ Colon $$ }
+	Comma		{ Comma $$ }
+	Plus		{ Plus $$ }
+	Minus		{ Minus $$ }
+	Mul		{ Mul $$ }
+	Div		{ Div $$ }
+	Mod		{ Mod $$ }
+	Eq		{ Eq $$ }
+	NEq		{ NEq $$ }
+	Greater		{ Greater $$ }
+	GEq		{ GEq $$ }
+	Less		{ Less $$ }
+	LEq		{ LEq $$ }
+	LBracket	{ LBracket $$ }
+	RBracket	{ RBracket $$ }
+	TPIdentifier	{ TPIdentifier $$1 $$2 }
+	Identifier	{ Identifier $$1 $$2 }
+	Number		{ Number $$1 $$2 }
 
 %%
 
 -- program
-program_all	: PROCEDURE proc_head IS declarations BEGIN commands END
-	    	{ Program [$1] (MainNoDecl $5) }
-		| PROGRAM IS declarations BEGIN commands END
-		{ Program [] (Main $3 $5) }
+program_all	: procedures main
+	    	{ Program $1 $2 }
 
 -- procedures
-procedures	: procedures PROCEDURE proc_head IS declarations BEGIN commands END
+procedures	: procedures Procedure proc_head Is declarations Begin commands End
 	   	{ $1 ++ [Procedure $3 $5 $7] }
-		| procedures PROCEDURE proc_head IS BEGIN commands END
+		| procedures Procedure proc_head Is Begin commands End
 		{ $1 ++ [ProcedureNoDecl $3 $5] }
 
 -- main procedure
-main		: PROGRAM IS declarations BEGIN commands END
+main		: Program Is declarations Begin commands End
       		{ Main $3 $5 }
-		| PROGRAM IS BEGIN commands END
+		| Program Is Begin commands End
 		{ MainNoDecl $4 }
 
 -- command
@@ -35,77 +78,84 @@ commands	: commands command
 		| command
 		{ [$1] }
 
-command		: identifier := expression ;
-	 	{Assign (SimpleId $1) $3 }
-		| IF condition THEN commands ELSE commands ENDIF
+command		: identifier Assign expression Semicolon
+	 	{ Assign (SimpleId $1) $3 }
+		| If condition Then commands Else commands EndIf
 		{ IfThenElse $2 $4 $6 }
-		| IF condition THEN commands ENDIF
-		{ If Then $2 $4 }
-		| WHILE condition DO commands ENDWHILE
+		| If condition Then commands EndIf
+		{ IfThen $2 $4 }
+		| While condition Do commands EndWhile
 		{ While $2 $4 }
-		| REPEAT commands UNTIL condition ;
+		| Repeat commands Until condition Semicolon
 		{ RepeatUntil $2 $4 }
-		| FOR pidentifier FROM value DOWNTO value DO commands ENDFOR
+		| For pidentifier From value To value Do commands EndFor
+		{ ForLoop $1 $3 $5 $8 }
+		| For pidentifier From value DownTo value Do commands EndFor
 		{ ForLoopDown $1 $3 $5 $8 }
-		| proc_call ;
+		| proc_call Semicolon
 		{ ProcedureCall $1 $2 }
-		| READ identifier ;
+		| Read identifier Semicolon
 		{ Read (SimpleId $2) }
-		| WRITE value;
+		| Write value Semicolon
 		{ Write $2 }
 
--- calling a procedure
-proc_call	: pidentifier (args)
-	  	{ $1 $3 }
-
 -- procedure head
-proc_head	: pidentifier (args_decl)
+proc_head	: pidentifier LParen args_decl RParen
 	  	{ ProcHead $1 $3 }
 
+-- calling a procedure
+proc_call	: pidentifier LParen args RParen
+	  	{ ProcedureCall $1 $3 }
+
 -- declarations
-declarations	: declarations , pidentifier
+declarations	: declarations Comma pidentifier
 	     	{ $1 ++ [$3] }
-		| declarations , pidentifier [ num : num ]
-		{ $1 ++ [ArrayDecl $3 (fst $5) (snd $5)] }
+		| declarations Comma pidentifier LBracket num Colon num RBracket
+		{ $1 ++ [ArrayDecl $3 $5 $7] }
 		| pidentifier
 		{ [VarDecl $1] }
-		| pidentifier [ num : num ]
-		{ [ArrayDecl $1 (fst $3) (snd $3)] }
+		| pidentifier LBracket num Colon num RBracket
+		{ [ArrayDecl $1 $3 $5] }
 
 -- procedure arguments
-args_decl	: args_decl , pidentifier
+args_decl	: args_decl Comma pidentifier
 	  	{ $1 ++ [$3] }
-		| args_decl , T pidentifier
-		{ $1 ++ [TPIdentifier $3] }
+		| args_decl Comma TPIdentifier
+		{ $1 ++ [$3] }
 		| pidentifier
 		{ [$1] }
-		| T pidentifier
-		{ [TPIdentifier $2] }
+		| TPIdentifier
+		{ [$1] }
+
+args		: args Comma pidentifier
+      		{ $1 ++ [$3] }
+      		| pidentifier
+		{ [$1] }
 
 expression	: value
 	   	{ ValueExpr $1 }
-		| value + value
+		| value Plus value
 		{ AddExpr $1 $3 }
-		| value - value
+		| value Minus value
 		{ SubExpr $1 $3 }
-		| value * value
+		| value Mul value
 		{ MulExpr $1 $3 }
-		| value / value
+		| value Div value
 		{ DivExpr $1 $3 }
-		| value % value
+		| value Mod value
 		{ ModExpr $1 $3 }
 
-condition	: value = value
+condition	: value Eq value
 	  	{ Equal $1 $3 }
-		| value != value
+		| value NEq value
 		{ NotEqual $1 $3 }
-		| value > value
+		| value Greater value
 		{ Greater $1 $3 }
-		| value >= value
+		| value GEq value
 		{ GreaterEqual $1 $3 }
-		| value < value
+		| value Less value
 		{ Less $1 $3 }
-		| value <= value
+		| value LEq value
 		{ LessEqual $1 $3 }
 
 value		: num
@@ -114,19 +164,22 @@ value		: num
 		{ IdValue (SimpleId $1) }
 
 identifier	: pidentifier
-	   	{ $1 }
-		| pidentifier [ pidentifier ]
+	   	{ SimpleId $1 }
+		| pidentifier LBracket pidentifier RBracket
 		{ ArrayId $1 $3 }
-		| pidentifier [ num ]	
+		| pidentifier LBracket num RBracket
 		{ ArrayIndexNum $1 $3 }
 
 num		: Number
      		{ $1 }
+
+pidentifier	: Identifier
+	    	{ SimpleId $1 }
 
 {
 parseError :: [TokWrap] -> a
 parseError [] = error ("parser: unexpected end of input.")
 parseError (tok:_) = case token_posn tok of
 	AlexPosn _ line col ->
-		error $ "parser: parse error at line " ++ show line ++ ", column " ++ show_col ++ ": unexpected token " ++ show tok
+		error $ "parser: parse error at line " ++ show line ++ ", column " ++ show col ++ ": unexpected token " ++ show tok
 }

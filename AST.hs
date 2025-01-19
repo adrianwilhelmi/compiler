@@ -43,6 +43,7 @@ data Expression
   | MulExpr Value Value
   | DivExpr Value Value
   | ModExpr Value Value
+  | ProcedureCall String [Value]
   deriving (Show)
 
 data Condition
