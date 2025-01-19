@@ -54,12 +54,10 @@ tokens :-
 	")"		{\p _ -> RParen p}
 	"["		{\p _ -> LBracket p}
 	"]"		{\p _ -> RBracket p}
+	":"		{\p _ -> Colon p}
 
 	-- table parameter identifier
-	"T "[_a-z][_a-z0-9]*	{\p s -> TPIdentifier p s}
-
-	-- table definition identifier
-	[_a-z][_a-z0-9]* "[" "-"?[0-9]+ ":" "-"?[0-9]+ "]" {\p s -> TDIdentifier p s}
+	"T "[_a-z][_a-z0-9]*	{\p s -> TPIdentifier p (dropWhile (== ' ') (tail s))}
 
 	-- identifiers
 	[_a-z][_a-z0-9]*	{\p s -> Identifier p s}
@@ -108,6 +106,7 @@ data Token
 	| RParen AlexPosn
 	| LBracket AlexPosn
 	| RBracket AlexPosn
+	| Colon	AlexPosn
 	| TPIdentifier AlexPosn String
 	| TDIdentifier AlexPosn String
 	| Identifier AlexPosn String
@@ -154,6 +153,7 @@ token_posn (LParen p)      = p
 token_posn (RParen p)      = p
 token_posn (LBracket p)    = p
 token_posn (RBracket p)    = p
+token_posn (Colon p)	   = p
 token_posn (TPIdentifier p _) = p
 token_posn (TDIdentifier p _) = p
 token_posn (Identifier p _) = p
