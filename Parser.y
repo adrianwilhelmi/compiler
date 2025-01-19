@@ -82,7 +82,51 @@ args_decl	: args_decl , pidentifier
 		| T pidentifier
 		{ [TPIdentifier $2] }
 
+expression	: value
+	   	{ ValueExpr $1 }
+		| value + value
+		{ AddExpr $1 $3 }
+		| value - value
+		{ SubExpr $1 $3 }
+		| value * value
+		{ MulExpr $1 $3 }
+		| value / value
+		{ DivExpr $1 $3 }
+		| value % value
+		{ ModExpr $1 $3 }
+
+condition	: value = value
+	  	{ Equal $1 $3 }
+		| value != value
+		{ NotEqual $1 $3 }
+		| value > value
+		{ Greater $1 $3 }
+		| value >= value
+		{ GreaterEqual $1 $3 }
+		| value < value
+		{ Less $1 $3 }
+		| value <= value
+		{ LessEqual $1 $3 }
+
+value		: num
+       		{ NumValue $1 }
+		| identifier
+		{ IdValue (SimpleId $1) }
+
+identifier	: pidentifier
+	   	{ $1 }
+		| pidentifier [ pidentifier ]
+		{ ArrayId $1 $3 }
+		| pidentifier [ num ]	
+		{ ArrayIndexNum $1 $3 }
+
+num		: Number
+     		{ $1 }
 
 {
 parseError :: [TokWrap] -> a
-parseError [] = error ("unknown parse error.")
+parseError [] = error ("parser: unexpected end of input.")
+parseError (tok:_) = case token_posn tok of
+	AlexPosn _ line col ->
+		error $ "parser: parse error at line " ++ show line ++ ", column " ++ show_col ++ ": unexpected token " ++ show tok
+}
