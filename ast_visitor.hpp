@@ -4,9 +4,9 @@
 #define AST_VISITOR_HPP
 
 #include"ast.hpp"
-struct ASTVisitor{
-	virtual ~ASTVisitor() = default;
-	
+
+class ASTVisitor{
+public:
 	virtual void visit(NumberExpr& expr) = 0;
 	virtual void visit(VariableExpr& expr) = 0;
 	virtual void visit(ArrayAccessExpr& expr) = 0;

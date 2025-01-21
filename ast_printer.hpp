@@ -1,6 +1,11 @@
 #ifndef AST_PRINTER_HPP
 #define AST_PRINTER_HPP
 
+#include<iostream>
+
+#include"ast.hpp"
+#include"ast_visitor.hpp"
+
 // author: ChatGPT (prompt engineer: Adrian Wilhelmi)
 
 // Klasa wizytora do debugowania i drukowania AST
@@ -58,7 +63,7 @@ struct ASTPrinter : ASTVisitor {
         stmt.to->accept(*this);
         printIndent();
         std::cout << "Body:" << std::endl;
-        for (auto* s : stmt.body) {
+        for (auto& s : stmt.body) {
             s->accept(*this);
         }
         indentLevel--;
@@ -68,7 +73,7 @@ struct ASTPrinter : ASTVisitor {
         printIndent();
         std::cout << "RepeatUntilStmt:" << std::endl;
         indentLevel++;
-        for (auto* s : stmt.body) {
+        for (auto& s : stmt.body) {
             s->accept(*this);
         }
         printIndent();
@@ -86,13 +91,13 @@ struct ASTPrinter : ASTVisitor {
         stmt.condition->accept(*this);
         printIndent();
         std::cout << "Then:" << std::endl;
-        for (auto* s : stmt.then_body) {
+        for (auto& s : stmt.then_body) {
             s->accept(*this);
         }
         if (!stmt.else_body.empty()) {
             printIndent();
             std::cout << "Else:" << std::endl;
-            for (auto* s : stmt.else_body) {
+            for (auto& s : stmt.else_body) {
                 s->accept(*this);
             }
         }
@@ -103,7 +108,7 @@ struct ASTPrinter : ASTVisitor {
         printIndent();
         std::cout << "ProcedureCallStmt: " << stmt.name << " with arguments:" << std::endl;
         indentLevel++;
-        for (auto* arg : stmt.arguments) {
+        for (auto& arg : stmt.arguments) {
             arg->accept(*this);
         }
         indentLevel--;
@@ -132,7 +137,7 @@ struct ASTPrinter : ASTVisitor {
         }
         printIndent();
         std::cout << "Body:" << std::endl;
-        for (auto* stmt : proc.body) {
+        for (auto& stmt : proc.body) {
             stmt->accept(*this);
         }
         indentLevel--;
@@ -142,12 +147,12 @@ struct ASTPrinter : ASTVisitor {
         printIndent();
         std::cout << "Program:" << std::endl;
         indentLevel++;
-        for (auto* proc : program.procedures) {
+        for (auto& proc : program.procedures) {
             proc->accept(*this);
         }
         printIndent();
         std::cout << "Main Body:" << std::endl;
-        for (auto* stmt : program.main_body) {
+        for (auto& stmt : program.main_body) {
             stmt->accept(*this);
         }
         indentLevel--;

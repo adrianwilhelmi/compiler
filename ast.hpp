@@ -3,15 +3,18 @@
 #ifndef AST_HPP
 #define AST_HPP
 
-#include<iostream>
+#include<memory>
 #include<vector>
 #include<string>
 #include<iomanip>
 
-struct ASTNode{
-	virtual ~ASTNode() = default;
+class ASTVisitor;
+
+class ASTNode{
+public:
 	//wzorzec visitora dla generowania kodu i analiz
 	virtual void accept(ASTVisitor& visitor) = 0;	
+	virtual ~ASTNode() = default;
 };
 
 
@@ -19,123 +22,140 @@ struct ASTNode{
 
 
 /*expression*/
-struct Expression : ASTNode {};
+struct Expression : public ASTNode {};
 
-struct NumberExpr : Expression{
+class NumberExpr : public Expression{
+public:
 	int value;
 	NumberExpr(int val) : value(val) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this); }
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct VariableExpr : Expression {
+class VariableExpr : public Expression {
+public:
 	std::string name;
 	VariableExpr(const std::string& var) : name(var) {}
-	void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct ArrayAccesExpr : Expression {
+class ArrayAccessExpr : public Expression {
+public:
 	std::string array_name;
-	Expression*index;
-	ArrayAccessExpr(const std::string&name, Expression*idx)
-		: array_name(name), index(idx) {}
-	void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+	std::unique_ptr<Expression> index;
+	ArrayAccessExpr(const std::string&name, std::unique_ptr<Expression> idx)
+		: array_name(name), index(std::move(idx)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct BinaryOpExpr : Expression{
+class BinaryOpExpr : public Expression{
+public:
 	std::string op;
-	Expression* left;
-	Expression* right;
-	BinaryOpExpr(const std::string&opr, Expression*lhs, Expression*rhs)
-		: op(opr), left(lhs), right(rhs) {}
-	void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+	std::unique_ptr<Expression> left;
+	std::unique_ptr<Expression> right;
+	BinaryOpExpr(const std::string&opr, std::unique_ptr<Expression> lhs, 
+			std::unique_ptr<Expression>rhs)
+		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
 
 
 
 /*statements*/
-struct Statement : ASTNode{};
+class Statement : public ASTNode{};
 
-struct AssignStmt : Statement{
+class AssignStmt : public Statement{
+public:
 	std::string variable;
-	Expression* value;
-	AssignStmt(const std::string& var, Expression* val) 
-		: variable(var), value(val) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+	std::unique_ptr<Expression> value;
+	AssignStmt(const std::string& var, std::unique_ptr<Expression> val) 
+		: variable(var), value(std::move(val)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct ForStmt : Statement{
+class ForStmt : public Statement{
+public:
 	std::string iterator;
-	Expression*from;
-	Expression*to;
+	std::unique_ptr<Expression> from;
+	std::unique_ptr<Expression> to;
 	bool downto;
-	std::vector<Statement*> body;
-	ForStmt(const std::string& iter, Expression*start, Expression*end, bool down)
-		: iterator(iter), from(start), to(end), downto(down) {}
-	void accept(ASTVisitor&visitor) override {visitor.visit(*this);}
+	std::vector<std::unique_ptr<Statement>> body;
+	ForStmt(const std::string& iter, std::unique_ptr<Expression> start, 
+		std::unique_ptr<Expression> end, bool down)
+		: iterator(iter), from(std::move(start)), to(std::move(end)), downto(down) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct RepeatUntilStmt : Statement{
-	std::vector<Statement*> body;
-	Expression*condition;
-	RepeatUntilStmt(const std::vector<Statement*>&b, Expression*cond)
-		: body(b), condition(cond) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+class RepeatUntilStmt : public Statement{
+public:
+	std::vector<std::unique_ptr<Statement>> body;
+	std::unique_ptr<Expression> condition;
+	RepeatUntilStmt(std::vector<std::unique_ptr<Statement>> b, 
+			std::unique_ptr<Expression> cond)
+		: body(std::move(b)), condition(std::move(cond)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct IfStmt : Statement{
-	Expression*condition;
-	std::vector<Statement*> then_body;
-	std::vector<Statement*> else_body;
-	IfStmt(Expression*cond, const std::vector<Statement*>& then_b,
-		const std::vector<Statement*>& else_b = {})
-		: condition(cond), then_body(then_b), else_body(else_b) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+class IfStmt : public Statement{
+public:
+	std::unique_ptr<Expression> condition;
+	std::vector<std::unique_ptr<Statement>> then_body;
+	std::vector<std::unique_ptr<Statement>> else_body;
+	IfStmt(std::unique_ptr<Expression> cond, 
+			std::vector<std::unique_ptr<Statement>> then_b,
+			std::vector<std::unique_ptr<Statement>> else_b)
+		: condition(std::move(cond)), then_body(std::move(then_b)), else_body(std::move(else_b)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct ProcedureCallStmt : Statement{
+class ProcedureCallStmt : public Statement{
+public:
 	std::string name;
-	std::vector<Expression*> arguments;
+	std::vector<std::unique_ptr<Expression>> arguments;
 	ProcedureCallStmt(const std::string& proc_name, 
-			const std::vector<Expression*>& args)
-		: name(proc_name), arguments(args) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+			std::vector<std::unique_ptr<Expression>> args)
+		: name(proc_name), arguments(std::move(args)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct ReadStmt : Statement{
+class ReadStmt : public Statement{
+public:
 	std::string variable;
 	ReadStmt(const std::string& var) : variable(var) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+	void accept(ASTVisitor& visitor) override;
 };
 
-struct WriteStmt : Statement{
-	Expression*value;
-	WriteStmt(Expression*val) : value(val) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+class WriteStmt : public Statement{
+public:
+	std::unique_ptr<Expression>value;
+	WriteStmt(std::unique_ptr<Expression> val) : value(std::move(val)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
 
 
 
 //procedures and main program
-struct ProcedureDecl : ASTNode{
+class ProcedureDecl : public ASTNode{
+public:
 	std::string name;
 	std::vector<std::string> parameters;
-	std::vector<Statement*> body;
+	std::vector<std::unique_ptr<Statement>> body;
 	ProcedureDecl(const std::string& proc_name, 
-			const std::vector<std::string>& params,
-			const std::vector<Statement*>& b)
-		: name(proc_name), parameters(params), body(b) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+			std::vector<std::string> params,
+			std::vector<std::unique_ptr<Statement>> b)
+		: name(proc_name), parameters(std::move(params)), body(std::move(b)) {}
+	void accept(ASTVisitor& visitor) override;
 };
-	
-struct Program : ASTNode{
-	std::vector<ProcedureDecl*> procedures;
-	std::vector<Statement*> main_body;
-	Program(const std::vector<ProcedureDecl*>& procs, 
-		const std::vector<Statement*> body)
-		: procedures(procs), main_body(body) {}
-	void accept(ASTVisitor& visitor) override {visitor.visit(*this);}
+
+class Program : public ASTNode{
+public:
+	std::vector<std::unique_ptr<ProcedureDecl>> procedures;
+	std::vector<std::unique_ptr<Statement>> main_body;
+	Program(std::vector<std::unique_ptr<ProcedureDecl>> procs, 
+		std::vector<std::unique_ptr<Statement>> body)
+		: procedures(std::move(procs)), main_body(std::move(body)) {}
+	void accept(ASTVisitor& visitor) override;
 };
 
 
