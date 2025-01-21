@@ -1,3 +1,5 @@
+/*author: Adrian Wilhelmi*/
+
 %{
 #include<iostream>
 #include<cstdlib>

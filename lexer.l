@@ -1,4 +1,6 @@
 %{
+// author: Adrian Wilhelmi
+
 #include<string>
 #include<cstring>
 #include<cstdlib>
