@@ -17,7 +17,14 @@ void yyerror(const char*s);
 %union{
 	int num;
 	char*str;
+	std::vector<std::unique_ptr<ProcedureDecl>> proc_vec;
+	std::vector<std::unique_ptr<Statement>> stmt_vec;
+	std::vector<std::unique_ptr<Expression>> expr_vec;
 }
+
+%type <proc_vec> procedures
+%type <stmt_vec> commands
+%type <expr_vec> args
 
 %token <num> TOKEN_NUMBER
 %token <str> TOKEN_IDENTIFIER
@@ -62,9 +69,6 @@ procedures:
 		$1.push_back(std::move(proc));
 		$$ = std::move($1);
 	}
-	/* inicjalizacja pustej listy procedur */
-	|
-	{ $$ = std::vector<std::unique_ptr<ProcedureDecl>>(); }
 	;
 
 main:
@@ -86,7 +90,8 @@ commands:
 	}
 	| command
 	{
-		$$ = std::vector<std::unique_ptr<Statement>>({std::move($1)});
+		$$ = std::vector<std::unique_ptr<Statement>>();
+		$$.push_back(std::move($1));
 	}
 	;
 
@@ -105,30 +110,39 @@ command:
 			std::vector<std::unique_ptr<Statement>>());
 	}
 	| TOKEN_WHILE condition TOKEN_DO commands TOKEN_ENDWHILE{
-		//
+		
+		$$ = std::make_unique<WhileStmt>(std::move($2), std::move(4));
 	}
-	| TOKEN_REPEAT commands TOKEN_UNTIL condition TOKEN_SEMICOLON{
-		//
+	| TOKEN_REPEAT commands TOKEN_UNTIL condition TOKEN_SEMICOLON
+	{
+		$$ = std::make_unique<RepeatUntilStmt>(std::move($2), std::move($4));
 	}
-	| TOKEN_FOR pidentifier TOKEN_FROM value TOKEN_TO value TOKEN_DO commands TOKEN_ENDFOR{
-		//
+	| TOKEN_FOR pidentifier TOKEN_FROM value TOKEN_TO value TOKEN_DO commands TOKEN_ENDFOR
+	{
+		$$ = std::make_unique<ForStmt>(std::move($2), std::move($4),
+					std::move($6), std::move($8), false);
 	}
 	| TOKEN_FOR pidentifier TOKEN_FROM value TOKEN_DOWNTO value TOKEN_DO commands TOKEN_ENDFOR{
-		//
+		$$ = std::make_unique<ForStmt>(std::move($2), std::move($4),
+					std::move($6), std::move($8), true);
 	}
-	| proc_call TOKEN_SEMICOLON{
-		//
+	| proc_call TOKEN_SEMICOLON
+	{
+		$$ = std::move($1);
 	}
-	| TOKEN_READ identifier TOKEN_SEMICOLON{
-		//
+	| TOKEN_READ identifier TOKEN_SEMICOLON
+	{
+		$$ = std::make_unique<ReadStmt>(std::move($2));
 	}
-	| TOKEN_WRITE value TOKEN_SEMICOLON{
-		//
+	| TOKEN_WRITE value TOKEN_SEMICOLON
+	{
+		$$ = std::make_unique<WriteStmt>(std::move($2));
 	}
 	;
 
 proc_head:
-	pidentifier TOKEN_LPAREN args_decl TOKEN_RPAREN{
+	pidentifier TOKEN_LPAREN args_decl TOKEN_RPAREN
+	{
 		//
 	}
 	;
@@ -137,26 +151,31 @@ proc_call:
 	pidentifier TOKEN_LPAREN args TOKEN_RPAREN
 	{
 		$$ = std::make_unique<ProcedureCallStmt>($1, std::move($3));
-		//
 	}
 	;
 
 declarations:
 	declarations TOKEN_COMMA pidentifier
 	{
-		$1.push_back($3);
+		$1.push_back(std::move($3));
 		$$ = std::move($1);
-		//
 	}
-	| declarations TOKEN_COMMA pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET{
-		//
+	| declarations TOKEN_COMMA pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
+	{
+		$$ = std::make_unique<ArrayDeclarationExpr>(std::move($3), 
+							std::move($5), std::move($7));
+		$1.push_back(std::move($$));
+		$$ = std::move($1);
 	}
-	| pidentifier{
-		$$ = std::vector<std::string>( {$1} );
-		//
+	| pidentifier
+	{
+		$$ = std::vector<unique_ptr<Expression>>();
+		$$.push_back(std::move($1));
 	}
-	| pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET{
-		//
+	| pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
+	{
+		$$ = std::vector<unique_ptr<Expression>>();
+		$$.push_back(std::move($1), std::move($3), std::move($5));
 	}
 	;
 
@@ -176,11 +195,15 @@ args_decl:
 	;
 
 args:
-	args TOKEN_COMMA pidentifier{
-		//
+	args TOKEN_COMMA pidentifier
+	{
+		$1.push_back(std::move($3));
+		$$ = $1;
 	}
-	| pidentifier{
-		//
+	| pidentifier
+	{
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		$$.push_back(std::move($1));
 	}
 	;
 
@@ -194,73 +217,86 @@ expression:
 	}
 	| value TOKEN_MINUS value
 	{
-		$$ = std::make_unique<BinaryOpExpr>("-" std::move($1), std::move($3));
+		$$ = std::make_unique<BinaryOpExpr>("-", std::move($1), std::move($3));
 	}
 	| value TOKEN_MUL value
 	{
-		$$ = std::make_unique<BinaryOpExpr>("*" std::move($1), std::move($3));
+		$$ = std::make_unique<BinaryOpExpr>("*", std::move($1), std::move($3));
 	}
 	| value TOKEN_DIV value
 	{
-		$$ = std::make_unique<BinaryOpExpr>("/" std::move($1), std::move($3));
+		$$ = std::make_unique<BinaryOpExpr>("/", std::move($1), std::move($3));
 	}
 	| value TOKEN_MOD value
 	{
-		$$ = std::make_unique<BinaryOpExpr>("%" std::move($1), std::move($3));
+		$$ = std::make_unique<BinaryOpExpr>("%", std::move($1), std::move($3));
 	}
 	;
 
 condition:
-	value TOKEN_EQ value{
-		//
+	value TOKEN_EQ value
+	{
+		$$ = std::make_unique<ConditionExpr>("=", std::move($1, std::move($3));
 	}
-	| value TOKEN_NEQ value{
-		//
+	| value TOKEN_NEQ value
+	{
+		$$ = std::make_unique<ConditionExpr>("!=", std::move($1, std::move($3));
 	}
-	| value TOKEN_GREATER value{
-		//
+	| value TOKEN_GREATER value
+	{
+		$$ = std::make_unique<ConditionExpr>(">", std::move($1, std::move($3));
 	}
-	| value TOKEN_LESS value{
-		//
+	| value TOKEN_LESS value
+	{
+		$$ = std::make_unique<ConditionExpr>("<", std::move($1, std::move($3));
 	}
-	| value TOKEN_GEQ value{
-		//
+	| value TOKEN_GEQ value
+	{
+		$$ = std::make_unique<ConditionExpr>(">=", std::move($1, std::move($3));
 	}
-	| value TOKEN_LEQ value{
-		//
+	| value TOKEN_LEQ value
+	{
+		$$ = std::make_unique<ConditionExpr>("<=", std::move($1, std::move($3));
 	}
 	;
 
 value:
-	num{
+	num
+	{
 		$$ = std::make_unique<NumberExpr>($1);
 	}
-	| identifier{
+	| identifier
+	{
 		$$ = std::move($1);
 	}
 	;
 
 identifier:
-	pidentifier{
+	pidentifier
+	{
 		$$ = std::make_unique<VariableExpr>($1);
 	}
-	| pidentifier TOKEN_LBRACKET pidentifier TOKEN_RBRACKET{
+	| pidentifier TOKEN_LBRACKET pidentifier TOKEN_RBRACKET
+	{
 		$$ = std::make_unique<ArrayAccessExpr>($1, std::move($3));
 	}
-	| pidentifier TOKEN_LBRACKET num TOKEN_RBRACKET{
-		//
+	| pidentifier TOKEN_LBRACKET num TOKEN_RBRACKET
+	{
+		$$ = std::make_unique<ArrayAccessExpr>($1, std::move($3));
 	}
 	;
 
 num:
-	TOKEN_NUMBER{
-		//
+	TOKEN_NUMBER
+	{
+		$$ = $1
 	}
 	;
 
 pidentifier:
-	TOKEN_IDENTIFIER{
-		//
+	TOKEN_IDENTIFIER
+	{
+		$$ = $1
 	}
 	;
 

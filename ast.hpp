@@ -22,11 +22,11 @@ public:
 
 
 /*expression*/
-struct Expression : public ASTNode {};
+class Expression : public ASTNode {};
 
 class NumberExpr : public Expression{
 public:
-	int value;
+	int64_t value;
 	NumberExpr(int val) : value(val) {}
 	void accept(ASTVisitor& visitor) override;
 };
@@ -47,12 +47,36 @@ public:
 	void accept(ASTVisitor& visitor) override;
 };
 
+class ArrayDeclarationExpr : public Expression {
+public:
+	std::unique_ptr<Expression> var;
+	std::unique_ptr<Expression> from;
+	std::unique_ptr<Expression> to;
+
+	ArrayDeclarationExpr(std::unique_ptr<Expression> variable,
+				std::unique_ptr<Expression> from,
+				std::unique_ptr<Expression> to)
+		: var(variable), from(from), to(to) {}
+	void accept(ASTVisitor& visitor) override;	
+};
+
 class BinaryOpExpr : public Expression{
 public:
 	std::string op;
 	std::unique_ptr<Expression> left;
 	std::unique_ptr<Expression> right;
 	BinaryOpExpr(const std::string&opr, std::unique_ptr<Expression> lhs, 
+			std::unique_ptr<Expression>rhs)
+		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
+class ConditionExpr : public Expression{
+public:
+	std::string op;
+	std::unique_ptr<Expression> left;
+	std::unique_ptr<Expression> right;
+	EqCondition(const std::string&opr, std::unique_ptr<Expression> lhs,
 			std::unique_ptr<Expression>rhs)
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
 	void accept(ASTVisitor& visitor) override;
@@ -73,16 +97,30 @@ public:
 	void accept(ASTVisitor& visitor) override;
 };
 
+class WhileStmt : public Statement{
+public:
+	std::vector<std::unique_ptr<Statement>> body;
+	std::unique_ptr<Expression> condition;
+	WhileStmt(std::vector<std::unique_ptr<Statement>> b,
+			std::unique_ptr<Expression> cond)
+		: body(std::move(b)), condition(std::move(cond)) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
 class ForStmt : public Statement{
 public:
 	std::string iterator;
 	std::unique_ptr<Expression> from;
 	std::unique_ptr<Expression> to;
-	bool downto;
 	std::vector<std::unique_ptr<Statement>> body;
-	ForStmt(const std::string& iter, std::unique_ptr<Expression> start, 
-		std::unique_ptr<Expression> end, bool down)
-		: iterator(iter), from(std::move(start)), to(std::move(end)), downto(down) {}
+	bool downto;
+	ForStmt(const std::string& iter, 
+			std::unique_ptr<Expression> start, 
+			std::unique_ptr<Expression> end, 
+			std::vector<std::unique_ptr<Statement>> b)
+			bool down,
+		: iterator(iter), from(std::move(start)), to(std::move(end)), 
+			body(std::move(b)), downto(down) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
