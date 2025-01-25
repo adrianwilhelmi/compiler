@@ -1,3 +1,5 @@
+//author: Adrian Wilhelmi
+
 #include"ast.hpp"
 #include"ast_printer.hpp"
 #include"parser.hpp"
@@ -17,8 +19,8 @@ int main(int argc, char*argv[]){
 		return 1;
 	}
 
-	std::ifstream input_file(argv[1]);
-	if(!input_file.is_open()){
+	FILE* input_file = fopen(argv[1], "r");
+	if(!input_file){
 		std::cerr << "error: cannot open file " << argv[1] << std::endl;
 		return 1;
 	}
@@ -27,7 +29,8 @@ int main(int argc, char*argv[]){
 	yylex_init(&scanner);
 	yyset_in(input_file, scanner);
 
-	calc::Parser parser{ scanner };
+	calc::Parser parser(scanner);
+	//calc::Parser parser{ scanner };
 	parser.parse();
 
 	if(root){
@@ -39,6 +42,7 @@ int main(int argc, char*argv[]){
 		std::cerr << "error: ast not created" << std::endl;
 	}
 
+	fclose(input_file);
 	yylex_destroy(scanner);
 
 	return 0;

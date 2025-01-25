@@ -16,7 +16,7 @@
 
 	extern std::unique_ptr<Program> root;
 
-	typedef void*yyscan_t;
+	typedef void* yyscan_t;
 
 	typedef int64_t number;
 	typedef std::string str;

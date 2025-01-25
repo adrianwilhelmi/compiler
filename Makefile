@@ -1,17 +1,15 @@
-LEX_SRC=lexer.l
-LEX_OUT=lexer
-
-FLAGS=-Wall -O3 -Wextra -Werror -std=c++17
-LEX_LIBS=-lfl -lstdc++
-
-LEX=flex++
+FLAGS=-Wall -std=c++17
 CXX=g++
 
-all: lexer
+parser: parser.y
+	bison -d parser.y
 
 lexer: lexer.l
-	$(LEX) $(LEX_SRC)
-	$(CXX) $(FLAGS) lex.yy.cc -o $(LEX_OUT) $(LEX_LIBS)
+	flex lexer.l
 
+compiler: main.cpp ast.cpp parser.cpp lexer.cpp
+	$(CXX) $(FLAGS) -o program main.cpp ast.cpp parser.cpp lexer.cpp -lfl
+	
 clean:
-	rm -f $(LEX_OUT) *.o *.yy.cc
+	rm -f $(LEX_OUT) *.o parser.cpp parser.hpp lexer.cpp lexer.hpp
+
