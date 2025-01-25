@@ -3,6 +3,9 @@
 %{
 #include<iostream>
 #include<cstdlib>
+#include<string>
+#include<memory>
+#include<vector>
 
 #include"tokens.hpp"
 #include"ast.hpp"
@@ -16,15 +19,33 @@ void yyerror(const char*s);
 
 %union{
 	int num;
-	char*str;
+	std::string str;
+	std::unique_ptr<Main> main_proc;
+	std::unique_ptr<Program> program;
+	std::unique_ptr<ProcedureDecl> proc_decl;
+	std::unique_ptr<Statement> stmt;
+	std::unique_ptr<Expression> expr;
 	std::vector<std::unique_ptr<ProcedureDecl>> proc_vec;
 	std::vector<std::unique_ptr<Statement>> stmt_vec;
 	std::vector<std::unique_ptr<Expression>> expr_vec;
 }
 
+%type <main_proc> main
+%type <expr_vec> declarations
+%type <program> program_all
 %type <proc_vec> procedures
+%type <proc_decl> proc_head
 %type <stmt_vec> commands
+%type <stmt> command
+%type <stmt> proc_call
 %type <expr_vec> args
+%type <expr_vec> args_decl
+%type <expr> expression
+%type <expr> condition
+%type <expr> value
+%type <expr> identifier
+%type <num> num
+%type <str> pidentifier
 
 %token <num> TOKEN_NUMBER
 %token <str> TOKEN_IDENTIFIER
@@ -69,16 +90,20 @@ procedures:
 		$1.push_back(std::move(proc));
 		$$ = std::move($1);
 	}
+	|
+	{
+		//
+	}
 	;
 
 main:
 	TOKEN_PROGRAM TOKEN_IS declarations TOKEN_BEGIN commands TOKEN_END
 	{
-		$$ = std::make_unique<Program>(std::vector<<std::unique_ptr<ProcedureDecl>>(), std::move($3), std::move($5));
+		$$ = std::make_unique<MainProcedure>(std::move($3), std::move($5));
 	}
 	| TOKEN_PROGRAM TOKEN_IS TOKEN_BEGIN commands TOKEN_END
 	{
-		$$ = std::move_unique<Program>(std::vector<std::unique_ptr<ProcedureDecl>>(), std::vector<std::unique_ptr<Statement>>(), std::move($4));
+		$$ = std::make_unique<MainProcedureNoDecl>(std::move($4));
 	}
 	;
 
@@ -111,7 +136,7 @@ command:
 	}
 	| TOKEN_WHILE condition TOKEN_DO commands TOKEN_ENDWHILE{
 		
-		$$ = std::make_unique<WhileStmt>(std::move($2), std::move(4));
+		$$ = std::make_unique<WhileStmt>(std::move($2), std::move($4));
 	}
 	| TOKEN_REPEAT commands TOKEN_UNTIL condition TOKEN_SEMICOLON
 	{
@@ -143,14 +168,15 @@ command:
 proc_head:
 	pidentifier TOKEN_LPAREN args_decl TOKEN_RPAREN
 	{
-		//
+		$$ = std::make_unique<ProcedureHeadExpr>(std::move($1), 
+							std::move($3));
 	}
 	;
 
 proc_call:
 	pidentifier TOKEN_LPAREN args TOKEN_RPAREN
 	{
-		$$ = std::make_unique<ProcedureCallStmt>($1, std::move($3));
+		$$ = std::make_unique<ProcedureCallStmt>(std::move($1), std::move($3));
 	}
 	;
 
@@ -162,9 +188,8 @@ declarations:
 	}
 	| declarations TOKEN_COMMA pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
 	{
-		$$ = std::make_unique<ArrayDeclarationExpr>(std::move($3), 
-							std::move($5), std::move($7));
-		$1.push_back(std::move($$));
+		auto arr_decl = std::make_unique<ArrayDeclarationExpr>($3, $5, $7);
+		$1.push_back(std::move(arr_decl));
 		$$ = std::move($1);
 	}
 	| pidentifier
@@ -174,23 +199,33 @@ declarations:
 	}
 	| pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
 	{
+		auto decl = std::make_unique<ArrayDeclarationExpr>(std::move($1),
+							std::move($3), std::move($5));
 		$$ = std::vector<unique_ptr<Expression>>();
-		$$.push_back(std::move($1), std::move($3), std::move($5));
+		$$.push_back(decl);
 	}
 	;
 
 args_decl:
-	args_decl TOKEN_COMMA pidentifier{
-		//
+	args_decl TOKEN_COMMA pidentifier
+	{
+		$1.push_back(std::move($3));
+		$$ = std::move($1);
 	}
-	| args_decl TOKEN_COMMA TOKEN_TPIDENTIFIER{
-		//
+	| args_decl TOKEN_COMMA TOKEN_TPIDENTIFIER
+	{
+		$1.push_back(std::move($3));
+		$$ = std::move($1);
 	}
-	| pidentifier{
-		//
+	| pidentifier
+	{
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		$$.push_back(std::move($1));
 	}
-	| TOKEN_TPIDENTIFIER{
-		//
+	| TOKEN_TPIDENTIFIER
+	{
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		$$.push_back(std::move($1));
 	}
 	;
 
@@ -236,27 +271,27 @@ expression:
 condition:
 	value TOKEN_EQ value
 	{
-		$$ = std::make_unique<ConditionExpr>("=", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>("=", std::move($1), std::move($3));
 	}
 	| value TOKEN_NEQ value
 	{
-		$$ = std::make_unique<ConditionExpr>("!=", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>("!=", std::move($1), std::move($3));
 	}
 	| value TOKEN_GREATER value
 	{
-		$$ = std::make_unique<ConditionExpr>(">", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>(">", std::move($1), std::move($3));
 	}
 	| value TOKEN_LESS value
 	{
-		$$ = std::make_unique<ConditionExpr>("<", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>("<", std::move($1), std::move($3));
 	}
 	| value TOKEN_GEQ value
 	{
-		$$ = std::make_unique<ConditionExpr>(">=", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>(">=", std::move($1), std::move($3));
 	}
 	| value TOKEN_LEQ value
 	{
-		$$ = std::make_unique<ConditionExpr>("<=", std::move($1, std::move($3));
+		$$ = std::make_unique<ConditionExpr>("<=", std::move($1), std::move($3));
 	}
 	;
 
@@ -278,25 +313,25 @@ identifier:
 	}
 	| pidentifier TOKEN_LBRACKET pidentifier TOKEN_RBRACKET
 	{
-		$$ = std::make_unique<ArrayAccessExpr>($1, std::move($3));
+		$$ = std::make_unique<ArrayAccessWithIdExpr>($1, $3);
 	}
 	| pidentifier TOKEN_LBRACKET num TOKEN_RBRACKET
 	{
-		$$ = std::make_unique<ArrayAccessExpr>($1, std::move($3));
+		$$ = std::make_unique<ArrayAccessWithNumExpr>($1, $3);
 	}
 	;
 
 num:
 	TOKEN_NUMBER
 	{
-		$$ = $1
+		$$ = $1;
 	}
 	;
 
 pidentifier:
 	TOKEN_IDENTIFIER
 	{
-		$$ = $1
+		$$ = $1;
 	}
 	;
 
