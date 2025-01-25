@@ -1,53 +1,55 @@
 /*author: Adrian Wilhelmi*/
 
 %{
-#include<iostream>
-#include<cstdlib>
-#include<string>
-#include<memory>
-#include<vector>
-
-#include"tokens.hpp"
-#include"ast.hpp"
-
-extern "C" int yylex();
-extern "C" int yylineno;
-extern "C" char*yytext;
-
-void yyerror(const char*s);
+#include"lexer.hpp"
 %}
 
-%union{
-	int num;
-	std::string str;
-	std::unique_ptr<Main> main_proc;
-	std::unique_ptr<Program> program;
-	std::unique_ptr<ProcedureDecl> proc_decl;
-	std::unique_ptr<Statement> stmt;
-	std::unique_ptr<Expression> expr;
-	std::vector<std::unique_ptr<ProcedureDecl>> proc_vec;
-	std::vector<std::unique_ptr<Statement>> stmt_vec;
-	std::vector<std::unique_ptr<Expression>> expr_vec;
+%code requires{
+	#include<iostream>
+	#include<string>
+	#include<memory>
+	#include<vector>
+	#include<cstdlib>
+
+	#include"lexer.hpp"
+	#include"ast.hpp"
+
+	extern std::unique_ptr<Program> root;
+
+	typedef void*yyscan_t;
+
+	typedef int64_t number;
+	typedef std::string str;
+	typedef std::unique_ptr<Main> main_proc;
+	typedef std::unique_ptr<Program> program;
+	typedef std::unique_ptr<ProcedureDecl> proc_decl;
+	typedef std::unique_ptr<ProcedureHeadExpr> head;
+	typedef std::unique_ptr<Statement> stmt;
+	typedef std::unique_ptr<Expression> expr;
+	typedef std::vector<std::unique_ptr<ProcedureDecl>> proc_vec;
+	typedef std::vector<std::unique_ptr<Statement>> stmt_vec;
+	typedef std::vector<std::unique_ptr<Expression>> expr_vec;
+	typedef std::vector<std::string> string_vec;
 }
 
-%type <main_proc> main
-%type <expr_vec> declarations
-%type <program> program_all
-%type <proc_vec> procedures
-%type <proc_decl> proc_head
-%type <stmt_vec> commands
-%type <stmt> command
-%type <stmt> proc_call
-%type <expr_vec> args
-%type <expr_vec> args_decl
-%type <expr> expression
-%type <expr> condition
-%type <expr> value
-%type <expr> identifier
-%type <num> num
-%type <str> pidentifier
+%require"3.7.4"
+%language "C++"
+%defines "parser.hpp"
+%output "parser.cpp"
 
-%token <num> TOKEN_NUMBER
+%define api.parser.class {Parser}
+%define api.namespace {calc}
+%define api.value.type variant
+%param {yyscan_t scanner}
+
+%code provides
+{
+	#define YY_DECL \
+		int yylex(calc::Parser::semantic_type *yylval, yyscan_t yyscanner)
+	YY_DECL;
+}
+
+%token <number> TOKEN_NUMBER
 %token <str> TOKEN_IDENTIFIER
 %token <str> TOKEN_TPIDENTIFIER
 %token TOKEN_PROGRAM TOKEN_IS TOKEN_BEGIN TOKEN_END
@@ -62,7 +64,28 @@ void yyerror(const char*s);
 %token TOKEN_COLON TOKEN_LPAREN TOKEN_RPAREN TOKEN_LBRACKET
 %token TOKEN_RBRACKET
 
+%type <program> program_all
+%nterm <main_proc> main
+%nterm <expr_vec> declarations
+%nterm <proc_vec> procedures
+%nterm <head> proc_head
+%nterm <stmt_vec> commands
+%nterm <stmt> command
+%nterm <stmt> proc_call
+%nterm <string_vec> args
+%nterm <string_vec> args_decl
+%nterm <expr> expression
+%nterm <expr> condition
+%nterm <expr> value
+%nterm <expr> identifier
+%nterm <number> num
+%nterm <str> pidentifier
+
 %start program_all
+
+%nonassoc	TOKEN_ASSIGN
+%left		TOKEN_PLUS TOKEN_MINUS
+%left		TOKEN_MUL TOKEN_DIV TOKEN_MOD
 
 %%
 
@@ -70,13 +93,14 @@ program_all:
 	procedures main
 	{
 		$$ = std::make_unique<Program>(std::move($1), std::move($2));
+		root = std::move($$);
 	}
 	;
 
 procedures:
 	procedures TOKEN_PROCEDURE proc_head TOKEN_IS declarations TOKEN_BEGIN commands TOKEN_END
 	{
-		auto proc = std::make_unique<ProcedureDecl>($3, 
+		auto proc = std::make_unique<ProcedureDecl>(std::move($3), 
 							std::move($5), 
 							std::move($7));
 		$1.push_back(std::move(proc));
@@ -84,8 +108,8 @@ procedures:
 	}
 	| procedures TOKEN_PROCEDURE proc_head TOKEN_IS TOKEN_BEGIN commands TOKEN_END
 	{
-		auto proc = std::make_unique<ProcedureDecl>($3,
-							std::vector<std::string>(),
+		auto proc = std::make_unique<ProcedureDecl>(std::move($3),
+							std::vector<std::unique_ptr<Expression>>(),
 							std::move($6));
 		$1.push_back(std::move(proc));
 		$$ = std::move($1);
@@ -123,7 +147,7 @@ commands:
 command:
 	identifier TOKEN_ASSIGN expression TOKEN_SEMICOLON
 	{
-		$$ = std::make_unique<AssignStmt>($1, std::move($3));
+		$$ = std::make_unique<AssignStmt>(std::move($1), std::move($3));
 	}
 	| TOKEN_IF condition TOKEN_THEN commands TOKEN_ELSE commands TOKEN_ENDIF
 	{
@@ -168,22 +192,22 @@ command:
 proc_head:
 	pidentifier TOKEN_LPAREN args_decl TOKEN_RPAREN
 	{
-		$$ = std::make_unique<ProcedureHeadExpr>(std::move($1), 
-							std::move($3));
+		$$ = std::make_unique<ProcedureHeadExpr>($1, std::move($3));
 	}
 	;
 
 proc_call:
 	pidentifier TOKEN_LPAREN args TOKEN_RPAREN
 	{
-		$$ = std::make_unique<ProcedureCallStmt>(std::move($1), std::move($3));
+		$$ = std::make_unique<ProcedureCallStmt>($1, std::move($3));
 	}
 	;
 
 declarations:
 	declarations TOKEN_COMMA pidentifier
 	{
-		$1.push_back(std::move($3));
+		auto var_decl = std::make_unique<VariableDeclarationExpr>($3);
+		$1.push_back(std::move(var_decl));
 		$$ = std::move($1);
 	}
 	| declarations TOKEN_COMMA pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
@@ -194,51 +218,51 @@ declarations:
 	}
 	| pidentifier
 	{
-		$$ = std::vector<unique_ptr<Expression>>();
-		$$.push_back(std::move($1));
+		auto var_decl = std::make_unique<VariableDeclarationExpr>($1);
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		$$.push_back(std::move(var_decl));
 	}
 	| pidentifier TOKEN_LBRACKET num TOKEN_COLON num TOKEN_RBRACKET
 	{
-		auto decl = std::make_unique<ArrayDeclarationExpr>(std::move($1),
-							std::move($3), std::move($5));
-		$$ = std::vector<unique_ptr<Expression>>();
-		$$.push_back(decl);
+		auto decl = std::make_unique<ArrayDeclarationExpr>($1, $3, $5);
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		$$.push_back(std::move(decl));
 	}
 	;
 
 args_decl:
 	args_decl TOKEN_COMMA pidentifier
 	{
-		$1.push_back(std::move($3));
+		$1.push_back($3);
 		$$ = std::move($1);
 	}
 	| args_decl TOKEN_COMMA TOKEN_TPIDENTIFIER
 	{
-		$1.push_back(std::move($3));
+		$1.push_back($3);
 		$$ = std::move($1);
 	}
 	| pidentifier
 	{
-		$$ = std::vector<std::unique_ptr<Expression>>();
-		$$.push_back(std::move($1));
+		$$ = std::vector<std::string>();
+		$$.push_back($1);
 	}
 	| TOKEN_TPIDENTIFIER
 	{
-		$$ = std::vector<std::unique_ptr<Expression>>();
-		$$.push_back(std::move($1));
+		$$ = std::vector<std::string>();
+		$$.push_back($1);
 	}
 	;
 
 args:
 	args TOKEN_COMMA pidentifier
 	{
-		$1.push_back(std::move($3));
+		$1.push_back($3);
 		$$ = $1;
 	}
 	| pidentifier
 	{
-		$$ = std::vector<std::unique_ptr<Expression>>();
-		$$.push_back(std::move($1));
+		$$ = std::vector<std::string>();
+		$$.push_back($1);
 	}
 	;
 
@@ -337,12 +361,6 @@ pidentifier:
 
 %%
 
-void yyerror(const char*s){
-	std::cerr << "parser: blad skladniowy: " << s << " w linii " << yylineno << std::endl;
-	exit(1);
-}
-
-int main(){
-	yyparse();
-	return 0;
+void calc::Parser::error(const std::string& msg){
+	std::cerr << msg << std::endl;
 }

@@ -26,15 +26,28 @@ struct ASTPrinter : ASTVisitor {
         std::cout << "VariableExpr: " << expr.name << std::endl;
     }
 
-    void visit(ArrayAccessExpr& expr) override {
+    void visit(ArrayAccessWithIdExpr& expr) override {
         printIndent();
         std::cout << "ArrayAccessExpr: " << expr.array_name << "[" << std::endl;
         indentLevel++;
-        expr.index->accept(*this);
+        printIndent();
+	std::cout << expr.index << std::endl;
         indentLevel--;
         printIndent();
         std::cout << "]" << std::endl;
     }
+
+    void visit(ArrayAccessWithNumExpr& expr) override {
+        printIndent();
+        std::cout << "ArrayAccessExpr: " << expr.array_name << "[" << std::endl;
+        indentLevel++;
+        printIndent();
+	std::cout << expr.index << std::endl;
+        indentLevel--;
+        printIndent();
+        std::cout << "]" << std::endl;
+    }
+
 
     void visit(BinaryOpExpr& expr) override {
         printIndent();
@@ -47,8 +60,9 @@ struct ASTPrinter : ASTVisitor {
 
     void visit(AssignStmt& stmt) override {
         printIndent();
-        std::cout << "AssignStmt: " << stmt.variable << " =" << std::endl;
+        std::cout << "AssignStmt: " << std::endl;
         indentLevel++;
+	stmt.variable->accept(*this);
         stmt.value->accept(*this);
         indentLevel--;
     }
@@ -108,15 +122,18 @@ struct ASTPrinter : ASTVisitor {
         printIndent();
         std::cout << "ProcedureCallStmt: " << stmt.name << " with arguments:" << std::endl;
         indentLevel++;
-        for (auto& arg : stmt.arguments) {
-            arg->accept(*this);
+        for (auto& arg : stmt.arguments) {	
+		std::cout << arg << ", ";
         }
+	std::cout << std::endl;
         indentLevel--;
     }
 
     void visit(ReadStmt& stmt) override {
         printIndent();
-        std::cout << "ReadStmt: " << stmt.variable << std::endl;
+	indentLevel++;
+	stmt.variable->accept(*this);
+	indentLevel--;
     }
 
     void visit(WriteStmt& stmt) override {
@@ -129,11 +146,12 @@ struct ASTPrinter : ASTVisitor {
 
     void visit(ProcedureDecl& proc) override {
         printIndent();
-        std::cout << "ProcedureDecl: " << proc.name << " with parameters:" << std::endl;
+        std::cout << "ProcedureDecl: " << std::endl;
         indentLevel++;
+	proc.head->accept(*this);
         for (const auto& param : proc.parameters) {
             printIndent();
-            std::cout << param << std::endl;
+	    param->accept(*this);	
         }
         printIndent();
         std::cout << "Body:" << std::endl;
@@ -151,12 +169,101 @@ struct ASTPrinter : ASTVisitor {
             proc->accept(*this);
         }
         printIndent();
-        std::cout << "Main Body:" << std::endl;
-        for (auto& stmt : program.main_body) {
-            stmt->accept(*this);
-        }
+	program.main->accept(*this);
         indentLevel--;
     }
+
+	void visit(ArrayDeclarationExpr& expr) override {
+	    printIndent();
+	    std::cout << "ArrayDeclarationExpr:" << std::endl;
+	    indentLevel++;
+	    printIndent();
+	    std::cout << "Variable: " << expr.var << std::endl;
+	    printIndent();
+	    std::cout << "From:" << expr.from << std::endl;
+	    printIndent();
+	    std::cout << "To:" << expr.to << std::endl;
+	    indentLevel--;
+	}
+
+	void visit(VariableDeclarationExpr& expr) override {
+	    printIndent();
+	    std::cout << "VariableDeclarationExpr:" << std::endl;
+	    indentLevel++;
+	    printIndent();
+	    std::cout << "Variable: " << expr.var;
+	    printIndent();
+	    indentLevel--;
+	}
+
+
+	void visit(ProcedureHeadExpr& expr) override {
+	    printIndent();
+	    std::cout << "ProcedureHeadExpr: " << std::endl;
+	    indentLevel++;
+		std::cout << expr.proc_name << std::endl;
+	    printIndent();
+	    std::cout << "Parameters:" << std::endl;
+	    for (auto& var : expr.vars) {
+		std::cout << var << ", ";
+	    }
+		std::cout << std::endl;
+	    indentLevel--;
+	}
+
+	void visit(ConditionExpr& expr) override {
+	    printIndent();
+	    std::cout << "ConditionExpr: " << expr.op << std::endl;
+	    indentLevel++;
+	    expr.left->accept(*this);
+	    expr.right->accept(*this);
+	    indentLevel--;
+	}
+
+	void visit(WhileStmt& stmt) override {
+	    printIndent();
+	    std::cout << "WhileStmt:" << std::endl;
+	    indentLevel++;
+	    printIndent();
+	    std::cout << "Condition:" << std::endl;
+	    stmt.condition->accept(*this);
+	    printIndent();
+	    std::cout << "Body:" << std::endl;
+	    for (auto& s : stmt.body) {
+		s->accept(*this);
+	    }
+	    indentLevel--;
+	}
+
+	void visit(MainProcedure& mainProcedure) {
+	    std::cout << "MainProcedure {" << std::endl;
+
+	    // Drukuj deklaracje
+	    std::cout << "  Declarations:" << std::endl;
+	    for (const auto& decl : mainProcedure.declarations) {
+		decl->accept(*this); // Odwiedź każdą deklarację
+	    }
+
+	    // Drukuj ciało
+	    std::cout << "  Body:" << std::endl;
+	    for (const auto& stmt : mainProcedure.body) {
+		stmt->accept(*this); // Odwiedź każdą instrukcję
+	    }
+
+	    std::cout << "}" << std::endl;
+	}
+
+	void visit(MainProcedureNoDecl& mainProcedureNoDecl) {
+	    std::cout << "MainProcedureNoDecl {" << std::endl;
+
+	    // Drukuj ciało
+	    std::cout << "  Body:" << std::endl;
+	    for (const auto& stmt : mainProcedureNoDecl.body) {
+		stmt->accept(*this); // Odwiedź każdą instrukcję
+	    }
+
+	    std::cout << "}" << std::endl;
+	}
 };
 
 

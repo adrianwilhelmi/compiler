@@ -38,25 +38,54 @@ public:
 	void accept(ASTVisitor& visitor) override;
 };
 
-class ArrayAccessExpr : public Expression {
+class ArrayAccessWithIdExpr : public Expression {
 public:
 	std::string array_name;
-	std::unique_ptr<Expression> index;
-	ArrayAccessExpr(const std::string&name, std::unique_ptr<Expression> idx)
-		: array_name(name), index(std::move(idx)) {}
+	std::string index;
+	ArrayAccessWithIdExpr(const std::string&name, std::string idx)
+		: array_name(name), index(idx) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
+class ArrayAccessWithNumExpr : public Expression {
+public:
+	std::string array_name;
+	int64_t index;
+	ArrayAccessWithNumExpr(const std::string&name, int64_t idx)
+		: array_name(name), index(idx) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
 class ArrayDeclarationExpr : public Expression {
 public:
-	std::unique_ptr<Expression> var;
-	std::unique_ptr<Expression> from;
-	std::unique_ptr<Expression> to;
+	std::string var;
+	int64_t from;
+	int64_t to;
 
-	ArrayDeclarationExpr(std::unique_ptr<Expression> variable,
-				std::unique_ptr<Expression> from,
-				std::unique_ptr<Expression> to)
+	ArrayDeclarationExpr(std::string variable,
+				int64_t from, int64_t to)
 		: var(variable), from(from), to(to) {}
+	void accept(ASTVisitor& visitor) override;	
+};
+
+class VariableDeclarationExpr : public Expression {
+public:
+	std::string var;
+
+	VariableDeclarationExpr(std::string variable)
+		: var(variable) {}
+	void accept(ASTVisitor& visitor) override;	
+};
+
+
+class ProcedureHeadExpr : public Expression {
+public:
+	std::string proc_name;
+	std::vector<std::string> vars;
+
+	ProcedureHeadExpr(const std::string& name,
+			std::vector<std::string> variables)
+		: proc_name(name), vars(std::move(variables)) {}
 	void accept(ASTVisitor& visitor) override;	
 };
 
@@ -76,7 +105,7 @@ public:
 	std::string op;
 	std::unique_ptr<Expression> left;
 	std::unique_ptr<Expression> right;
-	EqCondition(const std::string&opr, std::unique_ptr<Expression> lhs,
+	ConditionExpr(const std::string&opr, std::unique_ptr<Expression> lhs,
 			std::unique_ptr<Expression>rhs)
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
 	void accept(ASTVisitor& visitor) override;
@@ -90,10 +119,10 @@ class Statement : public ASTNode{};
 
 class AssignStmt : public Statement{
 public:
-	std::string variable;
+	std::unique_ptr<Expression> variable;
 	std::unique_ptr<Expression> value;
-	AssignStmt(const std::string& var, std::unique_ptr<Expression> val) 
-		: variable(var), value(std::move(val)) {}
+	AssignStmt(std::unique_ptr<Expression> var, std::unique_ptr<Expression> val) 
+		: variable(std::move(var)), value(std::move(val)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
@@ -101,8 +130,8 @@ class WhileStmt : public Statement{
 public:
 	std::vector<std::unique_ptr<Statement>> body;
 	std::unique_ptr<Expression> condition;
-	WhileStmt(std::vector<std::unique_ptr<Statement>> b,
-			std::unique_ptr<Expression> cond)
+	WhileStmt(std::unique_ptr<Expression> cond,
+			std::vector<std::unique_ptr<Statement>> b)
 		: body(std::move(b)), condition(std::move(cond)) {}
 	void accept(ASTVisitor& visitor) override;
 };
@@ -117,8 +146,8 @@ public:
 	ForStmt(const std::string& iter, 
 			std::unique_ptr<Expression> start, 
 			std::unique_ptr<Expression> end, 
-			std::vector<std::unique_ptr<Statement>> b)
-			bool down,
+			std::vector<std::unique_ptr<Statement>> b,
+			bool down)
 		: iterator(iter), from(std::move(start)), to(std::move(end)), 
 			body(std::move(b)), downto(down) {}
 	void accept(ASTVisitor& visitor) override;
@@ -149,17 +178,17 @@ public:
 class ProcedureCallStmt : public Statement{
 public:
 	std::string name;
-	std::vector<std::unique_ptr<Expression>> arguments;
+	std::vector<std::string> arguments;
 	ProcedureCallStmt(const std::string& proc_name, 
-			std::vector<std::unique_ptr<Expression>> args)
+			std::vector<std::string> args)
 		: name(proc_name), arguments(std::move(args)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
 class ReadStmt : public Statement{
 public:
-	std::string variable;
-	ReadStmt(const std::string& var) : variable(var) {}
+	std::unique_ptr<Expression> variable;
+	ReadStmt(std::unique_ptr<Expression> var) : variable(std::move(var)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
@@ -176,23 +205,43 @@ public:
 //procedures and main program
 class ProcedureDecl : public ASTNode{
 public:
-	std::string name;
-	std::vector<std::string> parameters;
+	std::unique_ptr<ProcedureHeadExpr> head;
+	std::vector<std::unique_ptr<Expression>> parameters;
 	std::vector<std::unique_ptr<Statement>> body;
-	ProcedureDecl(const std::string& proc_name, 
-			std::vector<std::string> params,
+	ProcedureDecl(std::unique_ptr<ProcedureHeadExpr> head,
+			std::vector<std::unique_ptr<Expression>> params,
 			std::vector<std::unique_ptr<Statement>> b)
-		: name(proc_name), parameters(std::move(params)), body(std::move(b)) {}
+		: head(std::move(head)), parameters(std::move(params)), body(std::move(b)) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
+class Main : public ASTNode {};
+
+class MainProcedure : public Main{
+public:
+	std::vector<std::unique_ptr<Expression>> declarations;
+	std::vector<std::unique_ptr<Statement>> body;
+	MainProcedure(std::vector<std::unique_ptr<Expression>> decl,
+			std::vector<std::unique_ptr<Statement>> b)
+		: declarations(std::move(decl)), body(std::move(b)) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
+class MainProcedureNoDecl : public Main{
+public:
+	std::vector<std::unique_ptr<Statement>> body;
+	MainProcedureNoDecl(std::vector<std::unique_ptr<Statement>> b)
+		: body(std::move(b)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
 class Program : public ASTNode{
 public:
 	std::vector<std::unique_ptr<ProcedureDecl>> procedures;
-	std::vector<std::unique_ptr<Statement>> main_body;
+	std::unique_ptr<Main> main;
 	Program(std::vector<std::unique_ptr<ProcedureDecl>> procs, 
-		std::vector<std::unique_ptr<Statement>> body)
-		: procedures(std::move(procs)), main_body(std::move(body)) {}
+		std::unique_ptr<Main> main)
+		: procedures(std::move(procs)), main(std::move(main)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
