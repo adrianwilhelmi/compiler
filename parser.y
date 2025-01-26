@@ -70,7 +70,7 @@
 %nterm <stmt> command
 %nterm <stmt> proc_call
 %nterm <string_vec> args
-%nterm <string_vec> args_decl
+%nterm <expr_vec> args_decl
 %nterm <expr> expression
 %nterm <expr> condition
 %nterm <expr> value
@@ -230,23 +230,27 @@ declarations:
 args_decl:
 	args_decl TOKEN_COMMA pidentifier
 	{
-		$1.push_back($3);
+		auto var_decl = std::make_unique<VariableArgDeclExpr>($3);
+		$1.push_back(std::move(var_decl));
 		$$ = std::move($1);
 	}
 	| args_decl TOKEN_COMMA TOKEN_TPIDENTIFIER
 	{
-		$1.push_back($3);
+		auto arr_decl = std::make_unique<ArrayArgDeclExpr>($3);
+		$1.push_back(std::move(arr_decl));
 		$$ = std::move($1);
 	}
 	| pidentifier
 	{
-		$$ = std::vector<std::string>();
-		$$.push_back($1);
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		auto var_decl = std::make_unique<VariableArgDeclExpr>($1);
+		$$.push_back(std::move(var_decl));
 	}
 	| TOKEN_TPIDENTIFIER
 	{
-		$$ = std::vector<std::string>();
-		$$.push_back($1);
+		$$ = std::vector<std::unique_ptr<Expression>>();
+		auto arr_decl = std::make_unique<ArrayArgDeclExpr>($1);
+		$$.push_back(std::move(arr_decl));
 	}
 	;
 
@@ -346,6 +350,10 @@ num:
 	TOKEN_NUMBER
 	{
 		$$ = $1;
+	}
+	| TOKEN_MINUS TOKEN_NUMBER
+	{
+		$$ = -($2);
 	}
 	;
 

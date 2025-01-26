@@ -13,6 +13,8 @@ public:
 	virtual void visit(ArrayAccessWithNumExpr& expr) = 0;
 	virtual void visit(ArrayDeclarationExpr& expr) = 0;
 	virtual void visit(VariableDeclarationExpr& expr) = 0;
+	virtual void visit(VariableArgDeclExpr& expr) = 0;
+	virtual void visit(ArrayArgDeclExpr& expr) = 0;
 	virtual void visit(ProcedureHeadExpr& expr) = 0;
 	virtual void visit(BinaryOpExpr& expr) = 0;
 	virtual void visit(ConditionExpr& expr) = 0;

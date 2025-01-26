@@ -21,6 +21,14 @@ void ArrayDeclarationExpr::accept(ASTVisitor& visitor){
 	visitor.visit(*this);
 }
 
+void VariableArgDeclExpr::accept(ASTVisitor& visitor) {
+	visitor.visit(*this);
+}
+
+void ArrayArgDeclExpr::accept(ASTVisitor& visitor) {
+	visitor.visit(*this);
+}
+
 void VariableDeclarationExpr::accept(ASTVisitor& visitor){
 	visitor.visit(*this);
 }

@@ -77,14 +77,31 @@ public:
 	void accept(ASTVisitor& visitor) override;	
 };
 
+class VariableArgDeclExpr : public Expression{
+public:
+	std::string var;
+	
+	VariableArgDeclExpr(std::string variable)
+		: var(variable) {}
+	void accept(ASTVisitor& visitor) override;
+};
+
+class ArrayArgDeclExpr : public Expression{
+public:
+	std::string var;
+	
+	ArrayArgDeclExpr(std::string variable)
+		: var(variable) {}
+	void accept(ASTVisitor& visitor) override;
+};
 
 class ProcedureHeadExpr : public Expression {
 public:
 	std::string proc_name;
-	std::vector<std::string> vars;
+	std::vector<std::unique_ptr<Expression>> vars;
 
 	ProcedureHeadExpr(const std::string& name,
-			std::vector<std::string> variables)
+			std::vector<std::unique_ptr<Expression>> variables)
 		: proc_name(name), vars(std::move(variables)) {}
 	void accept(ASTVisitor& visitor) override;	
 };
