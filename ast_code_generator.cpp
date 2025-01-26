@@ -41,6 +41,7 @@ public:
 		//
 	}
 	void visit(BinaryOpExpr& expr) override{
+		
 		//
 	}
 	void visit(ConditionExpr& expr) override{
@@ -48,13 +49,13 @@ public:
 	}
 
 	void visit(AssignStmt& stmt) override{
-		//
+		
 	}
 	void visit(WhileStmt& stmt) override{
 		//
 	}
 	void visit(ForStmt& stmt) override{
-		//
+		
 	}
 	void visit(RepeatUntilStmt& stmt) override{
 		//
@@ -65,11 +66,14 @@ public:
 	void visit(ProcedureCallStmt& stmt) override{
 		//
 	}
+
 	void visit(ReadStmt& stmt) override{
 		//
 	}
+
 	void visit(WriteStmt& stmt) override{
-		//
+		output_stream << "PUT ";
+		stmt.value->accept(*this);
 	}
 
 	void visit(ProcedureDecl& procedure) override{
@@ -104,6 +108,9 @@ public:
 private:
 	std::ostringstream generated_code;
 	std::ostream& output_stream;
+	int64_t k;
+	
+	std::unordered_map<std::string, int64_t> var_map
 };
 
 #endif // AST_CODE_GENERATOR_HPP
