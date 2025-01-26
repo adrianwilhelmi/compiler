@@ -25,25 +25,24 @@ int main(int argc, char*argv[]){
 		return 1;
 	}
 
-	yyscan_t scanner;	
-	yylex_init(&scanner);
-	yyset_in(input_file, scanner);
+	yyin = input_file;
+	calc::Parser parser;
 
-	calc::Parser parser(scanner);
-	//calc::Parser parser{ scanner };
-	parser.parse();
-
-	if(root){
-		std::cout << "ast succesfully built:\n";
-		ASTPrinter printer;
-		root->accept(printer);
+	if(parser.parse() == 0){
+		if(root){
+			std::cout << "ast succesfully built:\n";
+			ASTPrinter printer;
+			root->accept(printer);
+		}
+		else{
+			std::cerr << "error: ast not created" << std::endl;
+		}
 	}
 	else{
-		std::cerr << "error: ast not created" << std::endl;
+		std::cerr << "error: parsing failed" << std::endl;
 	}
 
 	fclose(input_file);
-	yylex_destroy(scanner);
 
 	return 0;
 }

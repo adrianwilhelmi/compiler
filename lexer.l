@@ -1,14 +1,16 @@
-%{
-// author: Adrian Wilhelmi
+/* author: Adrian Wilhelmi */
 
+%option yylineno
+%option nounput
+%option never-interactive
+%option outfile="lexer.cpp"
+%option header="lexer.hpp"
+
+%{
+
+#include <FlexLexer.h>
 
 #include"parser.hpp"
-
-#define YYTEXT yyget_text(yyscanner)
-#define YYIN yyget_in(yyscanner)
-#define YYOUT yyget_out(yyscanner)
-
-#define YY_DECL int yylex(calc::Parser::semantic_type *yylval, yyscan_t yyscanner)
 
 #include<string>
 #include<cstring>
@@ -16,15 +18,8 @@
 #include<iostream>
 #include<fstream>
 
-
 using namespace calc;
 %}
-
-%option reentrant
-%option yylineno
-%option nodefault
-%option outfile="lexer.cpp"
-%option header="lexer.hpp"
 
 %%
 
@@ -75,24 +70,24 @@ HALT		{return Parser::token::TOKEN_HALT;}
 "]"		{return Parser::token::TOKEN_RBRACKET;}
 
 "T "[a-zA-Z_][a-zA-Z0-9_]* {
-	yylval->emplace<std::string>(std::string(YYTEXT + 1));
+	yylval->emplace<std::string>(std::string(yytext + 1));
 	return Parser::token::TOKEN_TPIDENTIFIER;
 }
 
 [a-zA-Z_][a-zA-Z0-9_]*	{
-	yylval->emplace<std::string>(std::string(YYTEXT));
+	yylval->emplace<std::string>(std::string(yytext));
 	return Parser::token::TOKEN_IDENTIFIER;
 }
 
 [0-9]+	{
-	yylval->emplace<int64_t>(strtoll(YYTEXT, nullptr, 10));
+	yylval->emplace<int64_t>(strtoll(yytext, nullptr, 10));
 	return Parser::token::TOKEN_NUMBER;
 }
 
-.		{std::cout << "lexer: unexpected character" << YYTEXT << "\n";}
+.		{std::cout << "lexer: unexpected character" << yytext << "\n";}
 
 %%
 
-int yywrap(yyscan_t yyscanner){
+int yywrap(){
 	return 1;
 }

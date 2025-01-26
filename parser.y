@@ -4,6 +4,16 @@
 #include"lexer.hpp"
 %}
 
+
+%require"3.7.4"
+%language "C++"
+%defines "parser.hpp"
+%output "parser.cpp"
+
+%define api.parser.class {Parser}
+%define api.namespace {calc}
+%define api.value.type variant
+
 %code requires{
 	#include<iostream>
 	#include<string>
@@ -11,12 +21,10 @@
 	#include<vector>
 	#include<cstdlib>
 
-	#include"lexer.hpp"
+	/*#include"lexer.hpp"*/
 	#include"ast.hpp"
 
 	extern std::unique_ptr<Program> root;
-
-	typedef void* yyscan_t;
 
 	typedef int64_t number;
 	typedef std::string str;
@@ -32,20 +40,9 @@
 	typedef std::vector<std::string> string_vec;
 }
 
-%require"3.7.4"
-%language "C++"
-%defines "parser.hpp"
-%output "parser.cpp"
-
-%define api.parser.class {Parser}
-%define api.namespace {calc}
-%define api.value.type variant
-%param {yyscan_t scanner}
-
 %code provides
 {
-	#define YY_DECL \
-		int yylex(calc::Parser::semantic_type *yylval, yyscan_t yyscanner)
+	#define YY_DECL int yylex(calc::Parser::semantic_type *yylval)
 	YY_DECL;
 }
 
