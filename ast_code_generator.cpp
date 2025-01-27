@@ -28,32 +28,52 @@ public:
 		this->next_free_addr = 1;
 	}
 
-	std::string get_code() const{
-		return generated_code.str();
-	}
-
 	void visit(NumberExpr& expr) override{
 		emit("SET" + std::to_string(expr.value));
 	}
 
 	void visit(VariableExpr& expr) override{
-		std::size_t addr = this->get_mem(expr.name);
-		emit("LOAD " + std::to_string(addr));
+		auto it = var_map.find(expr.name);
+		if(it == var_map.end()){
+			throw std::runtime_error("undefined variable: " 
+						+ expr.name);
+		}
+
+		emit(" access element " + expr.name)
+		emit("LOAD " + std::to_string(it->second));
 	}
 
 	void visit(ArrayAccessWithIdExpr& expr) override{
-		const auto&info = array_info[expr.array_name];
+		auto it = array_info.find(expr.array_name);
+		if(it == array_info.end()){
+			throw std::runtime_error("undefined variable: " 
+						+ expr.array_name);
+		}
+
+		auto iit = var_map.find(expr.index);
+		if(iit == var_map.end()){
+			throw std::runtime_error("undefined variable: " 
+						+ expr.index);
+		}
+
+		const auto&info = it->second;
 		
 		emit("# access array elemetn " + expr.array_name 
 			+ "[" + expr.index + "]");
-		emit("LOAD " + std::to_string(var_map[expr.index]));
+		emit("LOAD " + std::to_string(iit->second));
 		emit("SUB " + std::to_string(info.from));
 		emit("ADD " + std::to_string(info.base_addr));
 		emit("LOADI 0");
 	}
 
 	void visit(ArrayAccessWithNumExpr& expr) override{
-		const auto& info = array_info[expr.array_name]
+		auto it = array_info.find(expr.array_name);
+		if(it == array_info.end()){
+			throw std::runtime_error("undefined variable: " 
+						+ expr.array_name);
+		}
+
+		const auto& info = it->second
 		int64_t adjusted_index = expr.index - info.from;
 		std::size_t real_index = info.base_address + adjusted_index;
 
@@ -89,36 +109,33 @@ public:
 	}
 
 	void visit(BinaryOpExpr& expr) override{
-		expr.left->visit(*this);
 		expr.right->visit(*this);
 
-		cl_I left_res = expr.left.get_result();
-		cl_I right_res = expr.right.get_result();
-		
-		cl_I result;
+		std::size_t temp_addr = alloc_temp_memory();
+		emit("STORE " + std::to_string(temp_addr));
+
+		expr.left->visit(*this);
+
 		if(expr.op == "+"){
-			result = left_res + right_res;
+			emit("ADD " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "-"){
-			result = left_res - right_res;
+			emit("SUB " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "*"){
-			result = left_res * right_res;
+			// mul
 		}
 		else if(expr.op == "/"){
-			if(right_res == 0){
-				throw std::runtime_error("division by zero");
-			}
-			result = left_res / right_res;
+			// div
 		}
 		else if(expr.op == "%"){
-			result = left_res % right_res;
+			// mod
 		}
 		else{
 			throw std::runtime_error("unsupported operator");
 		}
 
-		expr.set_result(result);
+		free_temp_memory();
 	}
 
 	void visit(ConditionExpr& expr) override{
@@ -155,8 +172,10 @@ public:
 	}
 
 	void visit(AssignStmt& stmt) override{
+		//Expression* expr = stmt.
+		//TUTAJ
 		stmt.value->accept(*this);
-		std::size_t addr = get_mem(stmt.variable->name)
+
 		emit("STORE " + std::to_string(addr));
 	}
 
@@ -227,22 +246,6 @@ public:
 			proc->accept(*this);
 		}
 		program.main->accept(*this);
-	}
-
-	std::size_t get_mem(std::string name) const{
-		/*
-		args:
-			variable/array name
-		returns:
-			given variables memory address (1st addr if array)
-		exception:
-			variable does not exist
-		*/
-
-		auto it = var_map.find(name);
-		if(it == var_map.end())
-			throw std::runtime_error("undefined variable: " + name);
-		return it->second;
 	}
 
 	std::size_t alloc_mem(std::string name, std::size_t arr_size = 0){
