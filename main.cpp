@@ -34,10 +34,11 @@ int main(int argc, char*argv[]){
 	if(parser.parse() == 0){
 		if(root){
 			std::cout << "ast succesfully built:\n";
-/*
+
+
 			ASTPrinter printer;
 			root->accept(printer);
-*/
+
 
 			std::ofstream output_file(argv[2]);
 			if(!output_file.is_open()){

@@ -116,12 +116,13 @@ public:
 		emit("STORE " + std::to_string(temp_addr));
 
 		expr.left->accept(*this);
+		emit("LOADI 0");
 
 		if(expr.op == "+"){
-			emit("ADD " + std::to_string(temp_addr));
+			emit("ADDI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "-"){
-			emit("SUB " + std::to_string(temp_addr));
+			emit("SUBI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "*"){
 			// mul
@@ -204,6 +205,17 @@ public:
 	}
 
 	void visit(ReadStmt& stmt) override{
+		stmt.variable->accept(*this);
+
+		std::string temp = alloc_temp_memory();
+		std::size_t temp_addr = var_map[temp];
+		emit("STORE " + std::to_string(temp_addr));
+
+		emit("GET 0");
+		emit("STOREI " + std::to_string(temp_addr));
+
+		free_temp_memory(temp);
+
 		/*
 		Expression*expr = stmt.variable.get();
 		
@@ -223,6 +235,9 @@ public:
 	}
 
 	void visit(WriteStmt& stmt) override{
+		stmt.value->accept(*this);
+		emit("LOADI 0");
+		emit("PUT 0");
 		//
 	}
 
@@ -278,7 +293,14 @@ public:
 	}
 
 	std::string alloc_temp_memory(int64_t arr_size = 0){
-		std::string temp = "__temp" + std::to_string(next_free_addr);
+		/*
+		args:
+			(optional) array size
+		returns:
+			allocated temporary variable's name
+		*/
+
+		std::string temp = "__TEMPORARY" + std::to_string(next_free_addr);
 		var_map[temp] = next_free_addr;
 
 		if(arr_size == 0){
@@ -297,8 +319,13 @@ public:
 
 		var_map.erase(temp);
 
-		if(arr_info.find(temp) != arr_info.end())
+		if(arr_info.find(temp) != arr_info.end()){
+			auto&info = arr_info[temp];
+			next_free_addr -= info.to;
 			arr_info.erase(temp);
+			return;
+		}
+		next_free_addr--;
 	}
 
 private:
