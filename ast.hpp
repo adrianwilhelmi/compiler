@@ -7,6 +7,9 @@
 #include<vector>
 #include<string>
 #include<iomanip>
+#include<limits>
+
+// #include<cln/cln.h>
 
 class ASTVisitor;
 
@@ -27,7 +30,7 @@ class Expression : public ASTNode {};
 class NumberExpr : public Expression{
 public:
 	int64_t value;
-	NumberExpr(int val) : value(val) {}
+	NumberExpr(int64_t val) : value(val) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
@@ -52,7 +55,7 @@ public:
 	std::string array_name;
 	int64_t index;
 	ArrayAccessWithNumExpr(const std::string&name, int64_t idx)
-		: array_name(name), index(idx) {}
+		: array_name(name), index(std::size_t(idx)) {}
 	void accept(ASTVisitor& visitor) override;
 };
 
@@ -114,6 +117,7 @@ public:
 	BinaryOpExpr(const std::string&opr, std::unique_ptr<Expression> lhs, 
 			std::unique_ptr<Expression>rhs)
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
+
 	void accept(ASTVisitor& visitor) override;
 };
 
@@ -125,6 +129,7 @@ public:
 	ConditionExpr(const std::string&opr, std::unique_ptr<Expression> lhs,
 			std::unique_ptr<Expression>rhs)
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
+
 	void accept(ASTVisitor& visitor) override;
 };
 

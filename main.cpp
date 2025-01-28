@@ -2,6 +2,7 @@
 
 #include"ast.hpp"
 #include"ast_printer.hpp"
+#include"ast_code_generator.hpp"
 #include"parser.hpp"
 #include"lexer.hpp"
 
@@ -14,8 +15,8 @@
 std::unique_ptr<Program> root;
 
 int main(int argc, char*argv[]){
-	if(argc < 2){
-		std::cerr << "usage: " << argv[0] << " <input_file>" << std::endl;
+	if(argc < 3){
+		std::cerr << "usage: " << argv[0] << " <input_file> <output_file>" << std::endl;
 		return 1;
 	}
 
@@ -25,14 +26,28 @@ int main(int argc, char*argv[]){
 		return 1;
 	}
 
+	//ZALADUJ PLIK WYJSCIOWY
+
 	yyin = input_file;
 	calc::Parser parser;
 
 	if(parser.parse() == 0){
 		if(root){
 			std::cout << "ast succesfully built:\n";
+/*
 			ASTPrinter printer;
 			root->accept(printer);
+*/
+
+			std::ofstream output_file(argv[2]);
+			if(!output_file.is_open()){
+				std::cerr << "err: cannot open output file: " << argv[2] << std::endl;
+				fclose(input_file);
+				return 1;
+			}
+
+			ASTCodeGenerator code_generator(output_file);
+			root->accept(code_generator);
 		}
 		else{
 			std::cerr << "error: ast not created" << std::endl;

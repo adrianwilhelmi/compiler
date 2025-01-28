@@ -1,6 +1,8 @@
 FLAGS=-Wall -std=c++17
 CXX=g++
 
+all: parser lexer compiler
+
 parser: parser.y
 	bison -d parser.y
 
