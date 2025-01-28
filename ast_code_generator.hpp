@@ -24,6 +24,7 @@ public:
 		: output_stream(output) {
 		this->var_map["0"] = 0;
 		this->next_free_addr = 1;
+		this->k = 0;
 	}
 
 	void visit(NumberExpr& expr) override{
@@ -113,19 +114,69 @@ public:
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
 
-		emit("STORE " + std::to_string(temp_addr));
-
-		expr.left->accept(*this);
-		emit("LOADI 0");
-
 		if(expr.op == "+"){
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
 			emit("ADDI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "-"){
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
 			emit("SUBI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "*"){
-			// mul
+			emit("LOADI 0");
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			//emit("JZERO " /*przejdz do halt*/ )
+
+			std::string temp2 = alloc_temp_memory();
+			std::size_t temp2_addr = var_map[temp2];
+			emit("LOADI 0");
+			emit("STORE " + std::to_string(temp2_addr));
+
+			std::string temp3 = alloc_temp_memory();
+			std::size_t temp3_addr = var_map[temp3];
+
+			std::string temp4 = alloc_temp_memory();
+			std::size_t temp4_addr = var_map[temp4];
+
+			emit("STORE " + std::to_string(temp4_addr));	//temp
+			emit("SET 0");
+			emit("STORE " + std::to_string(temp3_addr));	//result = 0
+
+			//petla mnozenia
+			//sprawdz najmniej znaczacy bit prawego operanda
+			emit("LOAD " + std::to_string(temp2_addr));
+			emit("JZERO 16");	//przejdz do halt
+			emit("HALF");
+			emit("STORE " + std::to_string(temp4_addr));
+			emit("LOAD " + std::to_string(temp2_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("JZERO 4"); // najmlodszy = 0 -> nie dodawaj a do wyniku
+
+			// najmlodszy = 1 -> dodaj a do wyniku
+			emit("LOAD " + std::to_string(temp3_addr));
+			emit("ADD " + std::to_string(temp_addr));
+			emit("STORE " + std::to_string(temp3_addr));
+
+			// a = a * 2, b = b // 2
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("ADD " + std::to_string(temp_addr));
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("LOAD " + std::to_string(temp4_addr));
+			emit("STORE" + std::to_string(temp2_addr));
+			emit("JUMP -15");
+			
+			emit("LOAD " + std::to_string(temp3_addr));
+			
+			free_temp_memory(temp2);
+			free_temp_memory(temp3);
+			free_temp_memory(temp4);
 		}
 		else if(expr.op == "/"){
 			// div
