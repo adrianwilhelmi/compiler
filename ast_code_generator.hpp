@@ -178,18 +178,55 @@ public:
 			free_temp_memory(temp4);
 		}
 		else if(expr.op == "/"){
-
 			std::string temp4 = alloc_temp_memory();
 			std::size_t temp4_addr = var_map[temp4];
 
+			std::string temp_lsign = alloc_temp_memory();
+			std::size_t lsign_addr = var_map[temp_lsign];
+
+			std::string temp_rsign = alloc_temp_memory();
+			std::size_t rsign_addr = var_map[temp_rsign];
+
 			emit("LOADI 0");
-			emit("JZERO 32"); /* idz na koniec */
+			emit("JZERO 42"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp4_addr));
+
+			// zapamietaj znak prawej stroyn
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("STORE " + std::to_string(temp4_addr));
+
+			emit("SET 1");
+			emit("STORE" + std::to_string(rsign_addr));
+
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE" + std::to_string(rsign_addr));
+
 
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("JZERO 29"); /* idz na koniec */
+			emit("JZERO 31"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
+
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("SET 1");
+			emit("STORE" + std::to_string(lsign_addr));
+
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE" + std::to_string(lsign_addr));
+
+
+			// zapamietaj znak prawej stroyn
+
 
 			std::string temp3 = alloc_temp_memory();
 			std::size_t temp3_addr = var_map[temp3];
@@ -237,7 +274,22 @@ public:
 			emit("LOAD " + std::to_string(temp4_addr));
 			emit("JPOS -13");
 
+			emit("LOAD " + std::to_string(lsign_addr));
+			emit("SUB " + std::to_string(rsign_addr));
+			emit("JZERO 5");
+
 			emit("LOAD " + std::to_string(temp2_addr));
+			emit("SET -1");
+			emit("SUB " + std::to_string(temp2_addr));
+			emit("JUMP 2");
+
+			emit("LOAD " + std::to_string(temp2_addr));
+
+			free_temp_memory(temp2);
+			free_temp_memory(temp3);
+			free_temp_memory(temp4);
+			free_temp_memory(temp_lsign);
+			free_temp_memory(temp_rsign);
 		}
 		else if(expr.op == "%"){
 			// mod
@@ -406,8 +458,10 @@ public:
 	}
 
 	void free_temp_memory(std::string temp){
-		if(var_map.find(temp) == var_map.end())
-			throw std::runtime_error("no such variable: " + temp);
+		if(var_map.find(temp) == var_map.end()){
+			return;
+			//throw std::runtime_error("no such variable: " + temp);
+		}
 
 		var_map.erase(temp);
 
