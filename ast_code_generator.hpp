@@ -130,7 +130,6 @@ public:
 			emit("LOADI 0");
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			//emit("JZERO " /*przejdz do halt*/ )
 
 			std::string temp2 = alloc_temp_memory();
 			std::size_t temp2_addr = var_map[temp2];
@@ -179,7 +178,66 @@ public:
 			free_temp_memory(temp4);
 		}
 		else if(expr.op == "/"){
-			// div
+
+			std::string temp4 = alloc_temp_memory();
+			std::size_t temp4_addr = var_map[temp4];
+
+			emit("LOADI 0");
+			emit("JZERO 32"); /* idz na koniec */
+			emit("STORE " + std::to_string(temp4_addr));
+
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("JZERO 29"); /* idz na koniec */
+			emit("STORE " + std::to_string(temp_addr));
+
+			std::string temp3 = alloc_temp_memory();
+			std::size_t temp3_addr = var_map[temp3];
+
+			std::string temp2 = alloc_temp_memory();
+			std::size_t temp2_addr = var_map[temp2];
+
+			//emit("SET 0");
+			emit("SET 0");
+			emit("STORE " + std::to_string(temp2_addr));	//result = 0
+			emit("SET 1");
+			emit("STORE " + std::to_string(temp3_addr));	//result = 0
+
+			// znajdz najwieksza potege 2^k, t ze b2^k <= a
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("JNEG 8"); /* przejdz do obliczania wyniku */
+			emit("LOAD " + std::to_string(temp3_addr));
+			emit("ADD " + std::to_string(temp3_addr));
+			emit("STORE " + std::to_string(temp3_addr));
+			emit("LOAD " + std::to_string(temp4_addr));
+			emit("ADD " + std::to_string(temp4_addr));
+			emit("STORE " + std::to_string(temp4_addr));
+			emit("JUMP -9");
+			
+			emit("LOAD " + std::to_string(temp4_addr));
+
+			// petla dzielenia
+			emit("HALF");
+			emit("STORE " + std::to_string(temp4_addr));
+
+			emit("LOAD " + std::to_string(temp3_addr));
+			emit("HALF");
+			emit("STORE " + std::to_string(temp3_addr));
+
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("JNEG 5"); // a < b -> przejdz do nastepnej iteracji
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("LOAD " + std::to_string(temp2_addr));
+			emit("ADD " + std::to_string(temp3_addr));
+			emit("STORE " + std::to_string(temp2_addr));
+
+			emit("LOAD " + std::to_string(temp4_addr));
+			emit("JPOS -13");
+
+			emit("LOAD " + std::to_string(temp2_addr));
 		}
 		else if(expr.op == "%"){
 			// mod
@@ -266,23 +324,6 @@ public:
 		emit("STOREI " + std::to_string(temp_addr));
 
 		free_temp_memory(temp);
-
-		/*
-		Expression*expr = stmt.variable.get();
-		
-		if(auto var_expr = dynamic_cast<VariableExpr*>(expr)){
-			//
-		}
-		else if(auto arr_id_expr = dynamic_cast<ArrayAccessWithIdExpr*>(expr)){
-			//
-		}
-		else if(auto arr_num_expr = dynamic_cast<ArrayAccessWithNumExpr*>(expr)){
-			//
-		}
-		else{
-			throw std::runtime_error("unknown expression type");
-		}
-		*/
 	}
 
 	void visit(WriteStmt& stmt) override{
@@ -351,7 +392,7 @@ public:
 			allocated temporary variable's name
 		*/
 
-		std::string temp = "__TEMPORARY" + std::to_string(next_free_addr);
+		std::string temp = "0_TEMPORARY" + std::to_string(next_free_addr);
 		var_map[temp] = next_free_addr;
 
 		if(arr_size == 0){
