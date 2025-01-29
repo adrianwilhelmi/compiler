@@ -127,8 +127,27 @@ public:
 			emit("SUBI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "*"){
+			std::string temp_lsign = alloc_temp_memory();
+			std::size_t lsign_addr = var_map[temp_lsign];
+
+			std::string temp_rsign = alloc_temp_memory();
+			std::size_t rsign_addr = var_map[temp_rsign];
+
 			emit("LOADI 0");
 			emit("STORE " + std::to_string(temp_addr));
+
+			//sprawdz znak b
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
+			emit("STORE " + std::to_string(temp_addr));
+			emit("SET 1");
+			emit("STORE " + std::to_string(rsign_addr));
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE " + std::to_string(rsign_addr));
+
 			expr.left->accept(*this);
 
 			std::string temp2 = alloc_temp_memory();
@@ -136,12 +155,24 @@ public:
 			emit("LOADI 0");
 			emit("STORE " + std::to_string(temp2_addr));
 
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp2_addr));
+			emit("SUB " + std::to_string(temp2_addr));
+			emit("STORE " + std::to_string(temp2_addr));
+			emit("SET 1");
+			emit("STORE " + std::to_string(lsign_addr));
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE " + std::to_string(lsign_addr));
+
 			std::string temp3 = alloc_temp_memory();
 			std::size_t temp3_addr = var_map[temp3];
 
 			std::string temp4 = alloc_temp_memory();
 			std::size_t temp4_addr = var_map[temp4];
 
+			emit("LOAD " + std::to_string(temp2_addr));
 			emit("STORE " + std::to_string(temp4_addr));	//temp
 			emit("SET 0");
 			emit("STORE " + std::to_string(temp3_addr));	//result = 0
@@ -149,7 +180,7 @@ public:
 			//petla mnozenia
 			//sprawdz najmniej znaczacy bit prawego operanda
 			emit("LOAD " + std::to_string(temp2_addr));
-			emit("JZERO 16");	//przejdz do halt
+			emit("JZERO 16");	//przejdz na koniec
 			emit("HALF");
 			emit("STORE " + std::to_string(temp4_addr));
 			emit("LOAD " + std::to_string(temp2_addr));
@@ -170,12 +201,23 @@ public:
 			emit("LOAD " + std::to_string(temp4_addr));
 			emit("STORE" + std::to_string(temp2_addr));
 			emit("JUMP -15");
-			
+
+			emit("LOAD " + std::to_string(lsign_addr));
+			emit("SUB " + std::to_string(rsign_addr));
+			emit("JZERO 5");
+
 			emit("LOAD " + std::to_string(temp3_addr));
-			
+			emit("SUB " + std::to_string(temp3_addr));
+			emit("SUB " + std::to_string(temp3_addr));
+			emit("JUMP 2");
+
+			emit("LOAD " + std::to_string(temp3_addr));
+
 			free_temp_memory(temp2);
 			free_temp_memory(temp3);
 			free_temp_memory(temp4);
+			free_temp_memory(temp_lsign);
+			free_temp_memory(temp_rsign);
 		}
 		else if(expr.op == "/"){
 			std::string temp4 = alloc_temp_memory();
@@ -227,7 +269,6 @@ public:
 
 			// zapamietaj znak prawej stroyn
 
-
 			std::string temp3 = alloc_temp_memory();
 			std::size_t temp3_addr = var_map[temp3];
 
@@ -276,9 +317,8 @@ public:
 
 			emit("LOAD " + std::to_string(lsign_addr));
 			emit("SUB " + std::to_string(rsign_addr));
-			emit("JZERO 5");
+			emit("JZERO 4");
 
-			emit("LOAD " + std::to_string(temp2_addr));
 			emit("SET -1");
 			emit("SUB " + std::to_string(temp2_addr));
 			emit("JUMP 2");
