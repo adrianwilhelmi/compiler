@@ -230,7 +230,7 @@ public:
 			std::size_t rsign_addr = var_map[temp_rsign];
 
 			emit("LOADI 0");
-			emit("JZERO 42"); /* idz na koniec */
+			emit("JZERO 58"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp4_addr));
 
 			// zapamietaj znak prawej stroyn
@@ -250,7 +250,7 @@ public:
 
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("JZERO 31"); /* idz na koniec */
+			emit("JZERO 46"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
 
 			emit("JPOS 7");
@@ -332,7 +332,108 @@ public:
 			free_temp_memory(temp_rsign);
 		}
 		else if(expr.op == "%"){
-			// mod
+			std::string temp4 = alloc_temp_memory();
+			std::size_t temp4_addr = var_map[temp4];
+
+			std::string temp_lsign = alloc_temp_memory();
+			std::size_t lsign_addr = var_map[temp_lsign];
+
+			std::string temp_rsign = alloc_temp_memory();
+			std::size_t rsign_addr = var_map[temp_rsign];
+
+			emit("LOADI 0");
+			emit("JZERO 58"); /* idz na koniec */
+			emit("STORE " + std::to_string(temp4_addr));
+
+			// zapamietaj znak prawej stroyn
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("STORE " + std::to_string(temp4_addr));
+
+			emit("SET 1");
+			emit("STORE" + std::to_string(rsign_addr));
+
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE" + std::to_string(rsign_addr));
+
+
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("JZERO 46"); /* idz na koniec */
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("JPOS 7");
+			emit("SUB " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("SET 1");
+			emit("STORE" + std::to_string(lsign_addr));
+
+			emit("JUMP 3");
+
+			emit("SET 0");
+			emit("STORE" + std::to_string(lsign_addr));
+
+
+			// zapamietaj znak prawej stroyn
+
+			std::string temp3 = alloc_temp_memory();
+			std::size_t temp3_addr = var_map[temp3];
+
+			std::string temp2 = alloc_temp_memory();
+			std::size_t temp2_addr = var_map[temp2];
+
+			//emit("SET 0");
+			emit("SET 0");
+			emit("STORE " + std::to_string(temp2_addr));	//result = 0
+			emit("LOAD " + std::to_string(temp4_addr));
+			emit("STORE " + std::to_string(temp3_addr));	//result = 0
+
+			// znajdz najwieksza potege 2^k, t ze b2^k <= a
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp3_addr));
+			emit("JNEG 5"); /* przejdz do obliczania wyniku */
+			emit("LOAD " + std::to_string(temp3_addr));
+			emit("ADD " + std::to_string(temp3_addr));
+			emit("STORE " + std::to_string(temp3_addr));
+			emit("JUMP -6");
+			
+			emit("LOAD " + std::to_string(temp3_addr));
+
+			// petla dzielenia
+			emit("HALF");
+			emit("STORE " + std::to_string(temp3_addr));
+
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("JNEG 5"); // a < b -> przejdz do nastepnej iteracji
+
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp3_addr));
+			emit("JNEG 2");
+			emit("STORE " + std::to_string(temp_addr));
+
+			emit("LOAD " + std::to_string(temp3_addr));
+			emit("JPOS -9");
+
+			emit("LOAD " + std::to_string(lsign_addr));
+			emit("SUB " + std::to_string(rsign_addr));
+			emit("JZERO 4");
+
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp4_addr));
+			emit("JUMP 2");
+
+			emit("LOAD " + std::to_string(temp_addr));
+
+			free_temp_memory(temp2);
+			free_temp_memory(temp3);
+			free_temp_memory(temp4);
+			free_temp_memory(temp_lsign);
+			free_temp_memory(temp_rsign);
 		}
 		else{
 			throw std::runtime_error("unsupported operator");
@@ -344,11 +445,11 @@ public:
 	void visit(ConditionExpr& expr) override{
 		expr.right->accept(*this);
 
+		/*
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
-		emit("STORE " + std::to_string(temp_addr));
+		*/
 
-		expr.left->accept(*this);
 
 		if(expr.op == "="){
 			//
@@ -372,7 +473,7 @@ public:
 			throw std::runtime_error("unsupported operator");
 		}
 
-		free_temp_memory(temp);
+		//free_temp_memory(temp);
 	}
 
 	void visit(AssignStmt& stmt) override{
