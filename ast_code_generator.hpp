@@ -629,8 +629,71 @@ public:
 		num_instr += 3;
 		stmt.set_num_instr(num_instr);
 	}
+
 	void visit(ForStmt& stmt) override{
-		
+		std::size_t num_instr = 0;
+
+		alloc_mem(stmt.iterator);
+		std::size_t iter_addr = var_map[stmt.iterator];
+
+		stmt.from->accept(*this);
+		num_instr += stmt.from->get_num_instr();
+		emit("STORE " + std::to_string(iter_addr));
+
+		std::string temp = alloc_temp_memory();
+		std::size_t temp_addr = var_map[temp];
+
+		stmt.to->accept(*this);
+		num_instr += stmt.to->get_num_instr();
+		emit("STORE " + std::to_string(temp_addr));
+
+		std::string temp_one = alloc_temp_memory();
+		std::size_t one_addr = var_map[temp_one];
+		emit("SET 1");
+		emit("STORE " + std::to_string(one_addr));
+
+		if(stmt.downto){
+			emit("LOAD " + std::to_string(iter_addr));
+			emit("SUB " + std::to_string(temp_addr));
+			emit("JNEG ?");
+		}
+		else{
+			emit("LOAD " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(iter_addr));
+			emit("JNEG ?");
+		}
+
+		std::size_t jzero_pos = instructions.size() - 1;
+
+		num_instr += 7;
+
+		std::size_t body_num_instr = 0;
+
+		for(auto& command : stmt.body){
+			command->accept(*this);
+			body_num_instr += command->get_num_instr();
+		}
+
+		num_instr += body_num_instr + 1;
+
+		if(stmt.downto){
+			emit("LOAD " + std::to_string(iter_addr));
+			emit("SUB " + std::to_string(one_addr));
+			emit("STORE " + std::to_string(iter_addr));
+		}
+		else{
+			emit("LOAD " + std::to_string(iter_addr));
+			emit("ADD " + std::to_string(one_addr));
+			emit("STORE " + std::to_string(iter_addr));
+		}
+
+		num_instr += 3;
+
+		emit("JUMP -" + std::to_string(body_num_instr + 5));
+		emit("JNEG " + std::to_string(body_num_instr + 4),
+				jzero_pos);
+
+		stmt.set_num_instr(num_instr);
 	}
 	void visit(RepeatUntilStmt& stmt) override{
 		//
