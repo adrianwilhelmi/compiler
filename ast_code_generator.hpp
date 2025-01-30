@@ -585,9 +585,21 @@ public:
 			command->accept(*this);
 			num_instr += command->get_num_instr();
 		}
-		for(auto& command : stmt.else_body){
-			command->accept(*this);
-			num_instr += command->get_num_instr();
+
+		if(!stmt.else_body.empty()){
+			std::size_t else_start = this->instructions.size();
+			emit("JUMP ?");
+			
+			std::size_t else_num_instr = 0;
+			for(auto& command : stmt.else_body){
+				command->accept(*this);
+				else_num_instr += command->get_num_instr();
+			}
+
+			emit("JUMP " + std::to_string(else_num_instr),
+				else_start);
+
+			num_instr += else_num_instr;
 		}
 
 		emit("JPOS " + std::to_string(num_instr + 2), 
