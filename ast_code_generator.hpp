@@ -443,37 +443,71 @@ public:
 	}
 
 	void visit(ConditionExpr& expr) override{
+		// (acc == 0) -> TRUE. w przeciwnym -> FALSE
 		expr.right->accept(*this);
 
-		/*
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
-		*/
-
 
 		if(expr.op == "="){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
 		}
 		else if(expr.op == "!="){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
+			emit("JZERO 3");
+			emit("SUB 0");
+			emit("JUMP 2");
+			emit("SET 1");
 		}
 		else if(expr.op == ">"){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
+			emit("JPOS 4");
+			emit("JNEG 4");
+			emit("SET 1");
+			emit("JUMP 2");
+			emit("SUB 0");
 		}
 		else if(expr.op == "<"){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
+			emit("JNEG 4");
+			emit("JPOS 4");
+			emit("SET 1");
+			emit("JUMP 2");
+			emit("SUB 0");
 		}
 		else if(expr.op == ">="){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
+			emit("JNEG 2");
+			emit("SET 0");
 		}
 		else if(expr.op == "<="){
-			//
+			emit("STORE " + std::to_string(temp_addr));
+			expr.left->accept(*this);
+			emit("LOADI 0");
+			emit("SUBI " + std::to_string(temp_addr));
+			emit("JPOS 2");
+			emit("SET 0");
 		}
 		else{
 			throw std::runtime_error("unsupported operator");
 		}
 
-		//free_temp_memory(temp);
+		free_temp_memory(temp);
 	}
 
 	void visit(AssignStmt& stmt) override{
