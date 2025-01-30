@@ -605,7 +605,29 @@ public:
 	}
 
 	void visit(WhileStmt& stmt) override{
-		//
+		stmt.condition->accept(*this);
+
+		std::size_t body_start = this->instructions.size();
+
+		emit("JPOS ?");
+		emit("JNEG ?");
+
+		std::size_t body_num_instr = 0;
+
+		for(auto&command : stmt.body){
+			command->accept(*this);
+			body_num_instr += command->get_num_instr();
+		}
+
+		std::size_t num_instr = stmt.condition->get_num_instr();
+		num_instr += body_num_instr;
+
+		emit("JUMP -" + std::to_string(num_instr + 1));
+		emit("JPOS " + std::to_string(body_num_instr + 2), body_start);
+		emit("JNEG " + std::to_string(body_num_instr + 1), body_start + 1);
+
+		num_instr += 3;
+		stmt.set_num_instr(num_instr);
 	}
 	void visit(ForStmt& stmt) override{
 		
