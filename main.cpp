@@ -33,12 +33,11 @@ int main(int argc, char*argv[]){
 
 	if(parser.parse() == 0){
 		if(root){
+			/*
 			std::cout << "ast succesfully built:\n";
-
-
 			ASTPrinter printer;
 			root->accept(printer);
-
+			*/
 
 			std::ofstream output_file(argv[2]);
 			if(!output_file.is_open()){
@@ -49,6 +48,7 @@ int main(int argc, char*argv[]){
 
 			ASTCodeGenerator code_generator(output_file);
 			root->accept(code_generator);
+			code_generator.push_code_to_file();
 		}
 		else{
 			std::cerr << "error: ast not created" << std::endl;
@@ -59,6 +59,8 @@ int main(int argc, char*argv[]){
 	}
 
 	fclose(input_file);
+
+	std::cout << "compilation OK" << std::endl;
 
 	return 0;
 }

@@ -8,6 +8,7 @@
 #include<unordered_map>
 #include<sstream>
 #include<fstream>
+#include<set>
 
 #include"ast.hpp"
 #include"ast_visitor.hpp"
@@ -29,7 +30,6 @@ public:
 	void visit(NumberExpr& expr) override{
 		emit("SET " + std::to_string(expr.value));
 		expr.set_num_instr(1);
-		std::cout << "number exrp num_instr: " << expr.get_num_instr() << std::endl;
 	}
 
 	void visit(VariableExpr& expr) override{
@@ -61,13 +61,6 @@ public:
 		emit("# access array elemetn " + expr.array_name 
 			+ "[" + expr.index + "]");
 		
-		//emit("LOAD " + std::to_string(iit->second));
-		/*
-		std::size_t arr_size = info.to - info.from;
-		emit("SET " + std::to_string(arr_size));
-		emit("SUBI " + std::to_string(iit->second));
-		emit("JNEG "); //dostep poza tablice.
-		*/
 		emit("LOAD " + std::to_string(iit->second));
 		emit("ADD " + std::to_string(info.base_addr - info.from));
 		emit("LOADI 0");
@@ -88,7 +81,6 @@ public:
 
 		emit("#access array element " + expr.array_name + "[" 
 			+ std::to_string(expr.index) + "]");
-		//emit("LOAD " + std::to_string(real_index)); // wartosc do akumulatora
 		emit("LOAD " + std::to_string(real_index));
 		expr.set_num_instr(1);
 	}
@@ -546,11 +538,17 @@ public:
 
 		std::size_t num_instr;
 
+
+		
 		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
 			auto it = var_map.find(expr->name);
 			if(it == var_map.end()){
 				throw std::runtime_error("undefined variable: " 
 							+ expr->name);
+			}
+
+			if(loop_iterators.find(expr->name) != loop_iterators.end()){
+				throw std::runtime_error("loop iterator '" + expr->name + "' modification");
 			}
 
 			emit("SET " + std::to_string(it->second));
@@ -562,6 +560,10 @@ public:
 			if(it == arr_info.end()){
 				throw std::runtime_error("undefined variable: " 
 							+ expr->array_name);
+			}
+
+			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
+				throw std::runtime_error("loop iterator '" + expr->array_name + "' modification");
 			}
 
 			auto iit = var_map.find(expr->index);
@@ -582,6 +584,10 @@ public:
 			if(it == arr_info.end()){
 				throw std::runtime_error("undefined variable: " 
 							+ expr->array_name);
+			}
+
+			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
+				throw std::runtime_error("loop iterator '" + expr->array_name + "' modification");
 			}
 
 			const auto& info = it->second;
@@ -635,6 +641,8 @@ public:
 
 		alloc_mem(stmt.iterator);
 		std::size_t iter_addr = var_map[stmt.iterator];
+
+		loop_iterators.insert(stmt.iterator);
 
 		stmt.from->accept(*this);
 		num_instr += stmt.from->get_num_instr();
@@ -693,8 +701,11 @@ public:
 		emit("JNEG " + std::to_string(body_num_instr + 4),
 				jzero_pos);
 
+		loop_iterators.erase(stmt.iterator);
+
 		stmt.set_num_instr(num_instr);
 	}
+
 	void visit(RepeatUntilStmt& stmt) override{
 		//
 	}
@@ -801,7 +812,7 @@ public:
 			num_instr = 1;
 		}
 		else{
-			throw std::runtime_error("Assign: unknown type");
+			throw std::runtime_error("Read: unknown type");
 		}
 
 
@@ -933,6 +944,7 @@ private:
 	std::ostream& output_stream;				//output file
 	std::size_t next_free_addr;
 	
+	std::set<std::string> loop_iterators;
 	std::unordered_map<std::string, std::size_t> var_map;	//map var/arr -> mem addr
 	std::unordered_map<std::string, ArrayInfo> arr_info;
 
