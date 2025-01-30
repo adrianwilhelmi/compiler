@@ -39,7 +39,7 @@ public:
 						+ expr.name);
 		}
 
-		emit("SET " + std::to_string(it->second)); // adres szukanego var 
+		emit("LOAD " + std::to_string(it->second)); 
 		expr.set_num_instr(1);
 	}
 
@@ -57,13 +57,21 @@ public:
 		}
 
 		const auto&info = it->second;
-		
+
 		emit("# access array elemetn " + expr.array_name 
 			+ "[" + expr.index + "]");
+		
+		//emit("LOAD " + std::to_string(iit->second));
+		/*
+		std::size_t arr_size = info.to - info.from;
+		emit("SET " + std::to_string(arr_size));
+		emit("SUBI " + std::to_string(iit->second));
+		emit("JNEG "); //dostep poza tablice.
+		*/
 		emit("LOAD " + std::to_string(iit->second));
-		emit("SUB " + std::to_string(info.from));
-		emit("ADD " + std::to_string(info.base_addr));
-		//ok
+		emit("ADD " + std::to_string(info.base_addr - info.from));
+		emit("LOADI 0");
+
 		expr.set_num_instr(3);
 	}
 
@@ -81,7 +89,7 @@ public:
 		emit("#access array element " + expr.array_name + "[" 
 			+ std::to_string(expr.index) + "]");
 		//emit("LOAD " + std::to_string(real_index)); // wartosc do akumulatora
-		emit("SET " + std::to_string(real_index));
+		emit("LOAD " + std::to_string(real_index));
 		expr.set_num_instr(1);
 	}
 
@@ -118,19 +126,17 @@ public:
 		if(expr.op == "+"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
-			emit("ADDI " + std::to_string(temp_addr));
+			emit("ADD " + std::to_string(temp_addr));
 
-			expr.set_num_instr(3 + expr.left->get_num_instr() 
+			expr.set_num_instr(2 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "-"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 
-			expr.set_num_instr(3 + expr.left->get_num_instr() 
+			expr.set_num_instr(2 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "*"){
@@ -140,7 +146,6 @@ public:
 			std::string temp_rsign = alloc_temp_memory();
 			std::size_t rsign_addr = var_map[temp_rsign];
 
-			emit("LOADI 0");
 			emit("STORE " + std::to_string(temp_addr));
 
 			//sprawdz znak b
@@ -159,7 +164,6 @@ public:
 
 			std::string temp2 = alloc_temp_memory();
 			std::size_t temp2_addr = var_map[temp2];
-			emit("LOADI 0");
 			emit("STORE " + std::to_string(temp2_addr));
 
 			emit("JPOS 7");
@@ -226,7 +230,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(51 + expr.left->get_num_instr() 
+			expr.set_num_instr(49 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "/"){
@@ -239,8 +243,7 @@ public:
 			std::string temp_rsign = alloc_temp_memory();
 			std::size_t rsign_addr = var_map[temp_rsign];
 
-			emit("LOADI 0");
-			emit("JZERO 58"); /* idz na koniec */
+			emit("JZERO 57"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp4_addr));
 
 			// zapamietaj znak prawej stroyn
@@ -259,7 +262,6 @@ public:
 
 
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("JZERO 46"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
 
@@ -341,7 +343,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(61 + expr.left->get_num_instr() 
+			expr.set_num_instr(59 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "%"){
@@ -354,8 +356,7 @@ public:
 			std::string temp_rsign = alloc_temp_memory();
 			std::size_t rsign_addr = var_map[temp_rsign];
 
-			emit("LOADI 0");
-			emit("JZERO 58"); /* idz na koniec */
+			emit("JZERO 57"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp4_addr));
 
 			// zapamietaj znak prawej stroyn
@@ -374,7 +375,6 @@ public:
 
 
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("JZERO 46"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
 
@@ -448,7 +448,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(54 + expr.left->get_num_instr() 
+			expr.set_num_instr(52 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else{
@@ -468,29 +468,26 @@ public:
 		if(expr.op == "="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 
-			expr.set_num_instr(3 + expr.left->get_num_instr() 
+			expr.set_num_instr(2 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "!="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JZERO 3");
 			emit("SUB 0");
 			emit("JUMP 2");
 			emit("SET 1");
 
-			expr.set_num_instr(7 + expr.left->get_num_instr() 
+			expr.set_num_instr(6 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == ">"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JPOS 4");
 			emit("JNEG 4");
@@ -498,13 +495,12 @@ public:
 			emit("JUMP 2");
 			emit("SUB 0");
 
-			expr.set_num_instr(8 + expr.left->get_num_instr() 
+			expr.set_num_instr(7 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "<"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG 4");
 			emit("JPOS 4");
@@ -512,29 +508,27 @@ public:
 			emit("JUMP 2");
 			emit("SUB 0");
 
-			expr.set_num_instr(8 + expr.left->get_num_instr() 
+			expr.set_num_instr(7 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == ">="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG 2");
 			emit("SET 0");
 
-			expr.set_num_instr(5 + expr.left->get_num_instr() 
+			expr.set_num_instr(4 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "<="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
-			emit("LOADI 0");
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JPOS 2");
 			emit("SET 0");
 
-			expr.set_num_instr(5 + expr.left->get_num_instr() 
+			expr.set_num_instr(4 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else{
@@ -545,20 +539,69 @@ public:
 	}
 
 	void visit(AssignStmt& stmt) override{
-		//Expression* expr = stmt.variable.get();
-		//TUTAJ
+		//stmt.variable->accept(*this);
 
-		stmt.variable->accept(*this);
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
-		emit("STORE " + std::to_string(temp_addr));
 
+		std::size_t num_instr;
+
+		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
+			auto it = var_map.find(expr->name);
+			if(it == var_map.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->name);
+			}
+
+			emit("SET " + std::to_string(it->second));
+
+			num_instr = 1;
+		}
+		else if(auto expr = dynamic_cast<ArrayAccessWithIdExpr*>(stmt.variable.get())){
+			auto it = arr_info.find(expr->array_name);
+			if(it == arr_info.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->array_name);
+			}
+
+			auto iit = var_map.find(expr->index);
+			if(iit == var_map.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->index);
+			}
+
+			const auto&info = it->second;
+
+			emit("LOAD " + std::to_string(iit->second));
+			emit("ADD " + std::to_string(info.base_addr - info.from));
+
+			num_instr = 2;
+		}
+		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
+			auto it = arr_info.find(expr->array_name);
+			if(it == arr_info.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->array_name);
+			}
+
+			const auto& info = it->second;
+			int64_t adjusted_index = expr->index - info.from;
+			std::size_t real_index = info.base_addr + adjusted_index;
+
+			emit("SET " + std::to_string(real_index));
+
+			num_instr = 1;
+		}
+		else{
+			throw std::runtime_error("Assign: unknown type");
+		}
+
+		emit("STORE " + std::to_string(temp_addr));
 		stmt.value->accept(*this);
 		emit("STOREI " + std::to_string(temp_addr));
 		free_temp_memory(temp);
 
-		stmt.set_num_instr(2 + stmt.variable->get_num_instr() 
-				+ stmt.value->get_num_instr());
+		stmt.set_num_instr(2 + num_instr + stmt.value->get_num_instr());
 	}
 
 	void visit(WhileStmt& stmt) override{
@@ -579,17 +622,25 @@ public:
 		emit("JPOS ?"); //ile przeskoczyc?
 		emit("JNEG ?"); //ile przeskoczyc?
 
-		std::size_t num_instr = 0;
+		std::size_t num_instr = 2;
+		std::size_t then_num_instr = 0;
 
 		for(auto& command : stmt.then_body){
 			command->accept(*this);
-			num_instr += command->get_num_instr();
+			then_num_instr += command->get_num_instr();
 		}
+
+		emit("JPOS " + std::to_string(then_num_instr + 2), 
+			then_start);
+		emit("JNEG " + std::to_string(then_num_instr + 1),
+			then_start + 1);
+
+		num_instr += then_num_instr;
 
 		if(!stmt.else_body.empty()){
 			std::size_t else_start = this->instructions.size();
 			emit("JUMP ?");
-			
+
 			std::size_t else_num_instr = 0;
 			for(auto& command : stmt.else_body){
 				command->accept(*this);
@@ -599,16 +650,11 @@ public:
 			emit("JUMP " + std::to_string(else_num_instr),
 				else_start);
 
-			num_instr += else_num_instr;
+			num_instr += else_num_instr + 1;
 		}
 
-		emit("JPOS " + std::to_string(num_instr + 2), 
-			then_start);
-		emit("JNEG " + std::to_string(num_instr + 1),
-			then_start + 1);
-
 		num_instr += stmt.condition->get_num_instr();
-		stmt.set_num_instr(num_instr + 2);
+		stmt.set_num_instr(num_instr);
 	}
 
 	void visit(ProcedureCallStmt& stmt) override{
@@ -616,24 +662,75 @@ public:
 	}
 
 	void visit(ReadStmt& stmt) override{
-		stmt.variable->accept(*this);
+		//stmt.variable->accept(*this);
 
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
-		emit("STORE " + std::to_string(temp_addr));
 
+		std::size_t num_instr;
+
+		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
+			auto it = var_map.find(expr->name);
+			if(it == var_map.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->name);
+			}
+
+			emit("SET " + std::to_string(it->second));
+
+			num_instr = 1;
+		}
+		else if(auto expr = dynamic_cast<ArrayAccessWithIdExpr*>(stmt.variable.get())){
+			auto it = arr_info.find(expr->array_name);
+			if(it == arr_info.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->array_name);
+			}
+
+			auto iit = var_map.find(expr->index);
+			if(iit == var_map.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->index);
+			}
+
+			const auto&info = it->second;
+
+			emit("LOAD " + std::to_string(iit->second));
+			emit("ADD " + std::to_string(info.base_addr - info.from));
+
+			num_instr = 2;
+		}
+		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
+			auto it = arr_info.find(expr->array_name);
+			if(it == arr_info.end()){
+				throw std::runtime_error("undefined variable: " 
+							+ expr->array_name);
+			}
+
+			const auto& info = it->second;
+			int64_t adjusted_index = expr->index - info.from;
+			std::size_t real_index = info.base_addr + adjusted_index;
+
+			emit("SET " + std::to_string(real_index));
+
+			num_instr = 1;
+		}
+		else{
+			throw std::runtime_error("Assign: unknown type");
+		}
+
+
+		emit("STORE " + std::to_string(temp_addr));
 		emit("GET 0");
 		emit("STOREI " + std::to_string(temp_addr));
 
 		free_temp_memory(temp);
 
-		stmt.set_num_instr(3 + stmt.variable->get_num_instr());
+		stmt.set_num_instr(3 + num_instr);
 	}
 
 	void visit(WriteStmt& stmt) override{
 		stmt.value->accept(*this);
-
-		emit("LOADI 0");
 		emit("PUT 0");
 
 		stmt.set_num_instr(2 + stmt.value->get_num_instr());
