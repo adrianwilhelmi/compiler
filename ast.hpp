@@ -18,6 +18,17 @@ public:
 	//wzorzec visitora dla generowania kodu i analiz
 	virtual void accept(ASTVisitor& visitor) = 0;	
 	virtual ~ASTNode() = default;
+
+	void set_num_instr(const std::size_t ni){
+		this->num_instr = ni;
+	}
+
+	std::size_t get_num_instr(){
+		return this->num_instr;
+	}
+
+private:
+	std::size_t num_instr = 0;
 };
 
 
@@ -32,6 +43,7 @@ public:
 	int64_t value;
 	NumberExpr(int64_t val) : value(val) {}
 	void accept(ASTVisitor& visitor) override;
+
 };
 
 class VariableExpr : public Expression {

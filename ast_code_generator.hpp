@@ -24,11 +24,12 @@ public:
 		: output_stream(output) {
 		this->var_map["0"] = 0;
 		this->next_free_addr = 1;
-		this->k = 0;
 	}
 
 	void visit(NumberExpr& expr) override{
 		emit("SET " + std::to_string(expr.value));
+		expr.set_num_instr(1);
+		std::cout << "number exrp num_instr: " << expr.get_num_instr() << std::endl;
 	}
 
 	void visit(VariableExpr& expr) override{
@@ -38,9 +39,8 @@ public:
 						+ expr.name);
 		}
 
-		emit("# access element " + expr.name);
-		//emit("LOAD " + std::to_string(it->second)); // wartosc do akumulatori
 		emit("SET " + std::to_string(it->second)); // adres szukanego var 
+		expr.set_num_instr(1);
 	}
 
 	void visit(ArrayAccessWithIdExpr& expr) override{
@@ -63,8 +63,8 @@ public:
 		emit("LOAD " + std::to_string(iit->second));
 		emit("SUB " + std::to_string(info.from));
 		emit("ADD " + std::to_string(info.base_addr));
-		//emit("LOADI 0"); // wartosc do akumulatora
 		//ok
+		expr.set_num_instr(3);
 	}
 
 	void visit(ArrayAccessWithNumExpr& expr) override{
@@ -82,6 +82,7 @@ public:
 			+ std::to_string(expr.index) + "]");
 		//emit("LOAD " + std::to_string(real_index)); // wartosc do akumulatora
 		emit("SET " + std::to_string(real_index));
+		expr.set_num_instr(1);
 	}
 
 	void visit(ArrayDeclarationExpr& expr) override{
@@ -119,12 +120,18 @@ public:
 			expr.left->accept(*this);
 			emit("LOADI 0");
 			emit("ADDI " + std::to_string(temp_addr));
+
+			expr.set_num_instr(3 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "-"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
 			emit("SUBI " + std::to_string(temp_addr));
+
+			expr.set_num_instr(3 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "*"){
 			std::string temp_lsign = alloc_temp_memory();
@@ -218,6 +225,9 @@ public:
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+
+			expr.set_num_instr(51 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "/"){
 			std::string temp4 = alloc_temp_memory();
@@ -330,6 +340,9 @@ public:
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+
+			expr.set_num_instr(61 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "%"){
 			std::string temp4 = alloc_temp_memory();
@@ -434,6 +447,9 @@ public:
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+
+			expr.set_num_instr(54 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else{
 			throw std::runtime_error("unsupported operator");
@@ -453,55 +469,73 @@ public:
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
+
+			expr.set_num_instr(3 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "!="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 			emit("JZERO 3");
 			emit("SUB 0");
 			emit("JUMP 2");
 			emit("SET 1");
+
+			expr.set_num_instr(7 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == ">"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 			emit("JPOS 4");
 			emit("JNEG 4");
 			emit("SET 1");
 			emit("JUMP 2");
 			emit("SUB 0");
+
+			expr.set_num_instr(8 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "<"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG 4");
 			emit("JPOS 4");
 			emit("SET 1");
 			emit("JUMP 2");
 			emit("SUB 0");
+
+			expr.set_num_instr(8 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == ">="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG 2");
 			emit("SET 0");
+
+			expr.set_num_instr(5 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "<="){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("LOADI 0");
-			emit("SUBI " + std::to_string(temp_addr));
+			emit("SUB " + std::to_string(temp_addr));
 			emit("JPOS 2");
 			emit("SET 0");
+
+			expr.set_num_instr(5 + expr.left->get_num_instr() 
+					+ expr.right->get_num_instr());
 		}
 		else{
 			throw std::runtime_error("unsupported operator");
@@ -522,6 +556,9 @@ public:
 		stmt.value->accept(*this);
 		emit("STOREI " + std::to_string(temp_addr));
 		free_temp_memory(temp);
+
+		stmt.set_num_instr(2 + stmt.variable->get_num_instr() 
+				+ stmt.value->get_num_instr());
 	}
 
 	void visit(WhileStmt& stmt) override{
@@ -533,9 +570,35 @@ public:
 	void visit(RepeatUntilStmt& stmt) override{
 		//
 	}
+
 	void visit(IfStmt& stmt) override{
-		//
+		stmt.condition->accept(*this);
+
+		std::size_t then_start = this->instructions.size();
+
+		emit("JPOS ?"); //ile przeskoczyc?
+		emit("JNEG ?"); //ile przeskoczyc?
+
+		std::size_t num_instr = 0;
+
+		for(auto& command : stmt.then_body){
+			command->accept(*this);
+			num_instr += command->get_num_instr();
+		}
+		for(auto& command : stmt.else_body){
+			command->accept(*this);
+			num_instr += command->get_num_instr();
+		}
+
+		emit("JPOS " + std::to_string(num_instr + 2), 
+			then_start);
+		emit("JNEG " + std::to_string(num_instr + 1),
+			then_start + 1);
+
+		num_instr += stmt.condition->get_num_instr();
+		stmt.set_num_instr(num_instr + 2);
 	}
+
 	void visit(ProcedureCallStmt& stmt) override{
 		//
 	}
@@ -551,13 +614,17 @@ public:
 		emit("STOREI " + std::to_string(temp_addr));
 
 		free_temp_memory(temp);
+
+		stmt.set_num_instr(3 + stmt.variable->get_num_instr());
 	}
 
 	void visit(WriteStmt& stmt) override{
 		stmt.value->accept(*this);
+
 		emit("LOADI 0");
 		emit("PUT 0");
-		//
+
+		stmt.set_num_instr(2 + stmt.value->get_num_instr());
 	}
 
 	void visit(ProcedureDecl& procedure) override{
@@ -565,28 +632,40 @@ public:
 	}
 
 	void visit(MainProcedure& main) override{
+		std::size_t num_instr = 0;
 		for(auto& decl : main.declarations){
 			decl->accept(*this);
+			num_instr += decl->get_num_instr();
 		}
 
 		for(auto& stmt : main.body){
 			stmt->accept(*this);
+			num_instr += stmt->get_num_instr();
 		}
+		main.set_num_instr(num_instr);
 	}
 
 	void visit(MainProcedureNoDecl& main) override{
+		std::size_t num_instr = 0;
 		for(auto& stmt : main.body){
 			stmt->accept(*this);
+			num_instr += stmt->get_num_instr();
 		}
+		main.set_num_instr(num_instr);
 	}
 
 	void visit(Program& program) override{
+		std::size_t num_instr = 1;
+
 		for(auto& proc : program.procedures){
 			proc->accept(*this);
+			num_instr += proc->get_num_instr();
 		}
 		program.main->accept(*this);
+		num_instr += program.main->get_num_instr();
 
 		emit("HALT");
+		program.set_num_instr(num_instr);
 	}
 
 	std::size_t alloc_mem(std::string name, std::size_t arr_size = 0){
@@ -649,18 +728,29 @@ public:
 		next_free_addr--;
 	}
 
+	void push_code_to_file(){
+		for(const auto& instr : this->instructions){
+			output_stream << instr << "\n";
+		}
+	}
+
 private:
+	std::vector<std::string> instructions;
 	std::ostream& output_stream;				//output file
-	std::size_t k;						//instr counter
 	std::size_t next_free_addr;
 	
 	std::unordered_map<std::string, std::size_t> var_map;	//map var/arr -> mem addr
 	std::unordered_map<std::string, ArrayInfo> arr_info;
 
-	void emit(const std::string instruction){
-		k++;
-		output_stream << instruction << "\n";
+	void emit(const std::string& instruction, std::size_t pos = 0){
+		if(pos == 0){
+			instructions.push_back(instruction);
+		}
+		else{
+			instructions[pos] = instruction;
+		}
 	}
+
 };
 
 #endif // AST_CODE_GENERATOR_HPP
