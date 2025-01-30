@@ -703,11 +703,24 @@ public:
 
 		loop_iterators.erase(stmt.iterator);
 
+		var_map.erase(stmt.iterator);
+
 		stmt.set_num_instr(num_instr);
 	}
 
 	void visit(RepeatUntilStmt& stmt) override{
-		//
+		std::size_t num_instr = 0;
+		std::size_t body_num_instr = 0;
+		for(auto& command : stmt.body){
+			command->accept(*this);
+			body_num_instr += command->get_num_instr();
+		}
+
+		stmt.condition->accept(*this);
+		num_instr = stmt.condition->get_num_instr() + body_num_instr;
+
+		emit("JNEG -" + std::to_string(num_instr));
+		emit("JPOS -" + std::to_string(num_instr + 1));
 	}
 
 	void visit(IfStmt& stmt) override{
