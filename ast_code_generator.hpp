@@ -254,7 +254,7 @@ public:
 
 
 			expr.left->accept(*this);
-			emit("JZERO 46"); /* idz na koniec */
+			emit("JZERO 45"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
 
 			emit("JPOS 7");
@@ -270,7 +270,6 @@ public:
 			emit("SET 0");
 			emit("STORE" + std::to_string(lsign_addr));
 
-
 			// zapamietaj znak prawej stroyn
 
 			std::string temp3 = alloc_temp_memory();
@@ -279,7 +278,6 @@ public:
 			std::string temp2 = alloc_temp_memory();
 			std::size_t temp2_addr = var_map[temp2];
 
-			//emit("SET 0");
 			emit("SET 0");
 			emit("STORE " + std::to_string(temp2_addr));	//result = 0
 			emit("SET 1");
@@ -335,7 +333,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(59 + expr.left->get_num_instr() 
+			expr.set_num_instr(57 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "%"){
@@ -367,7 +365,7 @@ public:
 
 
 			expr.left->accept(*this);
-			emit("JZERO 46"); /* idz na koniec */
+			emit("JZERO 45"); /* idz na koniec */
 			emit("STORE " + std::to_string(temp_addr));
 
 			emit("JPOS 7");
@@ -721,6 +719,8 @@ public:
 
 		emit("JNEG -" + std::to_string(num_instr));
 		emit("JPOS -" + std::to_string(num_instr + 1));
+
+		stmt.set_num_instr(num_instr + 2);
 	}
 
 	void visit(IfStmt& stmt) override{
