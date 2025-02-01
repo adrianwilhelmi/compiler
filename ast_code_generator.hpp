@@ -19,6 +19,11 @@ struct ArrayInfo{
 	int64_t to;
 };
 
+struct ProcedureInfo{
+	std::unordered_map<std::string, std::size_t> base_addr;
+	std::vector<bool> param_type; //false -> varaible. true -> arr
+};
+
 class ASTCodeGenerator : public ASTVisitor{
 public:
 	ASTCodeGenerator(std::ostream& output)
@@ -58,11 +63,17 @@ public:
 
 		const auto&info = it->second;
 
+		/*
 		emit("# access array elemetn " + expr.array_name 
 			+ "[" + expr.index + "]");
+		*/
 		
+		emit("SET " + std::to_string(info.base_addr - info.from));
+		emit("ADD " + std::to_string(iit->second));
+		/*
 		emit("LOAD " + std::to_string(iit->second));
 		emit("ADD " + std::to_string(info.base_addr - info.from));
+		*/
 		emit("LOADI 0");
 
 		expr.set_num_instr(3);
@@ -79,8 +90,10 @@ public:
 		int64_t adjusted_index = expr.index - info.from;
 		std::size_t real_index = info.base_addr + adjusted_index;
 
+		/*
 		emit("#access array element " + expr.array_name + "[" 
 			+ std::to_string(expr.index) + "]");
+		*/
 		emit("LOAD " + std::to_string(real_index));
 		expr.set_num_instr(1);
 	}
@@ -105,7 +118,11 @@ public:
 	void visit(ArrayArgDeclExpr& expr) override{
 		//
 	}
+
 	void visit(ProcedureHeadExpr& expr) override{
+		std::size_t proc_start = this->instructions.size();
+		this->procedures[expr.proc_name] = proc_start;
+
 		//
 	}
 
@@ -333,7 +350,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(57 + expr.left->get_num_instr() 
+			expr.set_num_instr(58 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "%"){
@@ -390,7 +407,6 @@ public:
 			std::string temp2 = alloc_temp_memory();
 			std::size_t temp2_addr = var_map[temp2];
 
-			//emit("SET 0");
 			emit("SET 0");
 			emit("STORE " + std::to_string(temp2_addr));	//result = 0
 			emit("LOAD " + std::to_string(temp4_addr));
@@ -438,7 +454,7 @@ public:
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
 
-			expr.set_num_instr(52 + expr.left->get_num_instr() 
+			expr.set_num_instr(51 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else{
@@ -479,26 +495,25 @@ public:
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("SUB " + std::to_string(temp_addr));
-			emit("JPOS 4");
-			emit("JNEG 4");
+			emit("JPOS 3");
 			emit("SET 1");
 			emit("JUMP 2");
 			emit("SUB 0");
 
-			expr.set_num_instr(7 + expr.left->get_num_instr() 
+			expr.set_num_instr(6 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == "<"){
 			emit("STORE " + std::to_string(temp_addr));
 			expr.left->accept(*this);
 			emit("SUB " + std::to_string(temp_addr));
-			emit("JNEG 4");
-			emit("JPOS 4");
+			emit("JNEG 3");
+			//emit("JPOS 4");
 			emit("SET 1");
 			emit("JUMP 2");
 			emit("SUB 0");
 
-			expr.set_num_instr(7 + expr.left->get_num_instr() 
+			expr.set_num_instr(6 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
 		else if(expr.op == ">="){
@@ -534,9 +549,7 @@ public:
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
 
-		std::size_t num_instr;
-
-
+		std::size_t num_instr = 0;
 		
 		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
 			auto it = var_map.find(expr->name);
@@ -572,8 +585,13 @@ public:
 
 			const auto&info = it->second;
 
+			emit("SET " + std::to_string(info.base_addr - info.from));
+			emit("ADD " + std::to_string(iit->second));
+
+			/*
 			emit("LOAD " + std::to_string(iit->second));
 			emit("ADD " + std::to_string(info.base_addr - info.from));
+			*/
 
 			num_instr = 2;
 		}
@@ -680,7 +698,7 @@ public:
 			body_num_instr += command->get_num_instr();
 		}
 
-		num_instr += body_num_instr + 1;
+		num_instr += body_num_instr;
 
 		if(stmt.downto){
 			emit("LOAD " + std::to_string(iter_addr));
@@ -695,13 +713,16 @@ public:
 
 		num_instr += 3;
 
-		emit("JUMP -" + std::to_string(body_num_instr + 5));
-		emit("JNEG " + std::to_string(body_num_instr + 4),
+		emit("JUMP -" + std::to_string(body_num_instr + 6));
+		emit("JNEG " + std::to_string(body_num_instr + 5),
 				jzero_pos);
 
-		loop_iterators.erase(stmt.iterator);
 
+		loop_iterators.erase(stmt.iterator);
 		var_map.erase(stmt.iterator);
+
+		free_temp_memory(temp);
+		free_temp_memory(temp_one);
 
 		stmt.set_num_instr(num_instr);
 	}
@@ -739,9 +760,9 @@ public:
 			then_num_instr += command->get_num_instr();
 		}
 
-		emit("JPOS " + std::to_string(then_num_instr + 2), 
+		emit("JPOS " + std::to_string(then_num_instr + 3), 
 			then_start);
-		emit("JNEG " + std::to_string(then_num_instr + 1),
+		emit("JNEG " + std::to_string(then_num_instr + 2),
 			then_start + 1);
 
 		num_instr += then_num_instr;
@@ -756,7 +777,7 @@ public:
 				else_num_instr += command->get_num_instr();
 			}
 
-			emit("JUMP " + std::to_string(else_num_instr),
+			emit("JUMP " + std::to_string(else_num_instr + 1),
 				else_start);
 
 			num_instr += else_num_instr + 1;
@@ -804,8 +825,8 @@ public:
 
 			const auto&info = it->second;
 
-			emit("LOAD " + std::to_string(iit->second));
-			emit("ADD " + std::to_string(info.base_addr - info.from));
+			emit("SET " + std::to_string(info.base_addr - info.from));
+			emit("ADD " + std::to_string(iit->second));
 
 			num_instr = 2;
 		}
@@ -842,11 +863,26 @@ public:
 		stmt.value->accept(*this);
 		emit("PUT 0");
 
-		stmt.set_num_instr(2 + stmt.value->get_num_instr());
+		stmt.set_num_instr(1 + stmt.value->get_num_instr());
 	}
 
 	void visit(ProcedureDecl& procedure) override{
-		//
+		std::size_t num_instr = 0;
+
+		procedure.head->accept(*this);
+		num_instr += procedure.head->get_num_instr();
+
+		for(auto& decl : procedure.parameters){
+			decl->accept(*this);
+			num_instr += decl->get_num_instr();
+		}
+
+		for(auto& command : procedure.body){
+			command->accept(*this);
+			num_instr += command->get_num_instr();
+		}
+
+		procedure.set_num_instr(num_instr);
 	}
 
 	void visit(MainProcedure& main) override{
@@ -958,8 +994,10 @@ private:
 	std::size_t next_free_addr;
 	
 	std::set<std::string> loop_iterators;
-	std::unordered_map<std::string, std::size_t> var_map;	//map var/arr -> mem addr
+
+	std::unordered_map<std::string, std::size_t> var_map;	
 	std::unordered_map<std::string, ArrayInfo> arr_info;
+	std::unordered_map<std::string, std::size_t> procedures;
 
 	void emit(const std::string& instruction, std::size_t pos = 0){
 		if(pos == 0){
