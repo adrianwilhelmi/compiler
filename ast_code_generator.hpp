@@ -20,8 +20,8 @@ struct ArrayInfo{
 };
 
 struct ProcedureInfo{
-	std::unordered_map<std::string, std::size_t> base_addr;
-	std::vector<bool> param_type; //false -> varaible. true -> arr
+	std::size_t proc_start;
+	std::unordered_map<std::string, bool> param_type; //false -> varaible. true -> arr
 };
 
 class ASTCodeGenerator : public ASTVisitor{
@@ -63,20 +63,32 @@ public:
 
 		const auto&info = it->second;
 
+		// wsadzic gdzies w komorke from
+		// wsadzic gdzies w komorke to
+		// zeby procedura mogla to odczytac potem...
+
+		// w proc deklaracji alokowac komorki dla from i to..
+		// pozniej w proc call wstawiac w te komorki wartosci
+		// bedzie ok
+
+
+		std::size_t from_addr = var_map["0_" + expr.array_name + "_from"];
+		//std::size_t to_addr = var_map["0_" + expr.array_name + "_to"];
+
+		emit("SET " + std::to_string(info.base_addr));
+		emit("SUB " + std::to_string(from_addr));
+		emit("ADD " + std::to_string(iit->second));
+		emit("LOADI 0");
+
+		expr.set_num_instr(4);
+
 		/*
-		emit("# access array elemetn " + expr.array_name 
-			+ "[" + expr.index + "]");
-		*/
-		
 		emit("SET " + std::to_string(info.base_addr - info.from));
 		emit("ADD " + std::to_string(iit->second));
-		/*
-		emit("LOAD " + std::to_string(iit->second));
-		emit("ADD " + std::to_string(info.base_addr - info.from));
-		*/
 		emit("LOADI 0");
 
 		expr.set_num_instr(3);
+		*/
 	}
 
 	void visit(ArrayAccessWithNumExpr& expr) override{
@@ -86,16 +98,25 @@ public:
 						+ expr.array_name);
 		}
 
+
 		const auto& info = it->second;
+
+		std::size_t from_addr = var_map["0_" + expr.array_name + "_from"];
+
+		emit("SET " + std::to_string(info.base_addr + expr.index));
+		emit("SUB " + std::to_string(from_addr));
+		//emit("ADD " + std::to_string(expr.index));
+		emit("LOADI 0");
+
+		expr.set_num_instr(4);
+
+		/*
 		int64_t adjusted_index = expr.index - info.from;
 		std::size_t real_index = info.base_addr + adjusted_index;
 
-		/*
-		emit("#access array element " + expr.array_name + "[" 
-			+ std::to_string(expr.index) + "]");
-		*/
 		emit("LOAD " + std::to_string(real_index));
 		expr.set_num_instr(1);
+		*/
 	}
 
 	void visit(ArrayDeclarationExpr& expr) override{
@@ -103,9 +124,29 @@ public:
 			throw std::runtime_error("invalid arr declaration" + expr.var + " [" + std::to_string(expr.from) + ":" + std::to_string(expr.to) + "]");
 		}
 
+		// dla procedur trzeba dodac cos w tym stylu
+		// alloc_mem("0_<expr.var>_from>");
+		// alloc_mem("0_<expr.var>_to>"):
+		// 0 zeby nie bylo drugiej takiej zmiennej.
+
+		std::size_t from_addr = alloc_mem("0_" + expr.var + "_from");
+		std::size_t to_addr = alloc_mem("0_" + expr.var + "_to");
+
+		emit("SET " + std::to_string(expr.from));
+		emit("STORE " + std::to_string(from_addr));
+
+		emit("SET " + std::to_string(expr.to));
+		emit("STORE " + std::to_string(to_addr));
+
+		// wtedy array access bedzie korzystac z tego
+		// w deklaracji procedury alokujemy miejsce na from i to.
+		// w call procedure wsadzac w tamto miejsce odpowiednie from i to.
+
 		std::size_t size = expr.to - expr.from + 1;
 		std::size_t base_address = alloc_mem(expr.var, size);
 		arr_info[expr.var] = {base_address, expr.from, expr.to};
+
+		expr.set_num_instr(4);
 	}
 
 	void visit(VariableDeclarationExpr& expr) override{
@@ -113,17 +154,26 @@ public:
 	}
 
 	void visit(VariableArgDeclExpr& expr) override{
-		//
+		
 	}
+
 	void visit(ArrayArgDeclExpr& expr) override{
-		//
+	
 	}
 
 	void visit(ProcedureHeadExpr& expr) override{
+		/*
 		std::size_t proc_start = this->instructions.size();
-		this->procedures[expr.proc_name] = proc_start;
+		this->procedures[expr.proc_name] = {proc_start, 
+					std::vector<bool>};
 
-		//
+		std::size_t decl_num_instr = 0;
+
+		for(auto& decl : expr.vars){
+			decl->accept(*this);
+			decl_num_instr += decl->get_num_instr();
+		}
+		*/
 	}
 
 	void visit(BinaryOpExpr& expr) override{
@@ -508,7 +558,6 @@ public:
 			expr.left->accept(*this);
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG 3");
-			//emit("JPOS 4");
 			emit("SET 1");
 			emit("JUMP 2");
 			emit("SUB 0");
@@ -550,7 +599,7 @@ public:
 		std::size_t temp_addr = var_map[temp];
 
 		std::size_t num_instr = 0;
-		
+
 		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
 			auto it = var_map.find(expr->name);
 			if(it == var_map.end()){
@@ -585,15 +634,21 @@ public:
 
 			const auto&info = it->second;
 
+			std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
+			//std::size_t to_addr = var_map["0_" + expr.array_name + "_to"];
+
+			emit("SET " + std::to_string(info.base_addr));
+			emit("SUB " + std::to_string(from_addr));
+			emit("ADD " + std::to_string(iit->second));
+
+			num_instr = 3;
+
+			/*
 			emit("SET " + std::to_string(info.base_addr - info.from));
 			emit("ADD " + std::to_string(iit->second));
 
-			/*
-			emit("LOAD " + std::to_string(iit->second));
-			emit("ADD " + std::to_string(info.base_addr - info.from));
-			*/
-
 			num_instr = 2;
+			*/
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
 			auto it = arr_info.find(expr->array_name);
@@ -607,12 +662,23 @@ public:
 			}
 
 			const auto& info = it->second;
+
+			std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
+
+			emit("SET " + std::to_string(info.base_addr + expr->index));
+			emit("SUB " + std::to_string(from_addr));
+			//emit("ADD " + std::to_string(expr->index));
+
+			num_instr = 3;
+
+			/*
 			int64_t adjusted_index = expr->index - info.from;
 			std::size_t real_index = info.base_addr + adjusted_index;
 
 			emit("SET " + std::to_string(real_index));
 
 			num_instr = 1;
+			*/
 		}
 		else{
 			throw std::runtime_error("Assign: unknown type");
@@ -825,10 +891,21 @@ public:
 
 			const auto&info = it->second;
 
+			std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
+			//std::size_t to_addr = var_map["0_" + expr.array_name + "_to"];
+
+			emit("SET " + std::to_string(info.base_addr));
+			emit("SUB " + std::to_string(from_addr));
+			emit("ADD " + std::to_string(iit->second));
+
+			num_instr = 3;
+
+			/*
 			emit("SET " + std::to_string(info.base_addr - info.from));
 			emit("ADD " + std::to_string(iit->second));
 
 			num_instr = 2;
+			*/
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
 			auto it = arr_info.find(expr->array_name);
@@ -838,12 +915,24 @@ public:
 			}
 
 			const auto& info = it->second;
+
+			std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
+
+			emit("SET " + std::to_string(info.base_addr + expr->index));
+			emit("SUB " + std::to_string(from_addr));
+			//emit("ADD " + std::to_string(expr->index));
+
+			num_instr = 3;
+
+
+			/*
 			int64_t adjusted_index = expr->index - info.from;
 			std::size_t real_index = info.base_addr + adjusted_index;
 
 			emit("SET " + std::to_string(real_index));
 
 			num_instr = 1;
+			*/
 		}
 		else{
 			throw std::runtime_error("Read: unknown type");
@@ -997,7 +1086,7 @@ private:
 
 	std::unordered_map<std::string, std::size_t> var_map;	
 	std::unordered_map<std::string, ArrayInfo> arr_info;
-	std::unordered_map<std::string, std::size_t> procedures;
+	std::unordered_map<std::string, ProcedureInfo> procedures;
 
 	void emit(const std::string& instruction, std::size_t pos = 0){
 		if(pos == 0){
@@ -1008,6 +1097,7 @@ private:
 		}
 	}
 
+	// SPRAWDZIC CZY ZMIENNA ZAINICJLIZIOWANA
 };
 
 #endif // AST_CODE_GENERATOR_HPP
