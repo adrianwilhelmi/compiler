@@ -103,12 +103,12 @@ public:
 
 		std::size_t from_addr = var_map["0_" + expr.array_name + "_from"];
 
-		emit("SET " + std::to_string(info.base_addr + expr.index));
+		emit("SET " + std::to_string((int64_t)info.base_addr + expr.index));
 		emit("SUB " + std::to_string(from_addr));
 		//emit("ADD " + std::to_string(expr.index));
 		emit("LOADI 0");
 
-		expr.set_num_instr(4);
+		expr.set_num_instr(3);
 
 		/*
 		int64_t adjusted_index = expr.index - info.from;
@@ -665,11 +665,11 @@ public:
 
 			std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
-			emit("SET " + std::to_string(info.base_addr + expr->index));
+			emit("SET " + std::to_string((int64_t)info.base_addr + expr->index));
 			emit("SUB " + std::to_string(from_addr));
 			//emit("ADD " + std::to_string(expr->index));
 
-			num_instr = 3;
+			num_instr = 2;
 
 			/*
 			int64_t adjusted_index = expr->index - info.from;
