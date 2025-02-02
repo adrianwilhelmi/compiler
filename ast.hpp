@@ -8,6 +8,9 @@
 #include<string>
 #include<iomanip>
 #include<limits>
+#include<algorithm>
+#include<cctype>
+
 
 // #include<cln/cln.h>
 
@@ -27,6 +30,9 @@ public:
 		return this->num_instr;
 	}
 
+	virtual void preprocess(const std::string& proc_name){  }
+	void set_proc_name(const std::string& proc_name) {}
+
 private:
 	std::size_t num_instr = 0;
 };
@@ -44,6 +50,9 @@ public:
 	NumberExpr(int64_t val) : value(val) {}
 	void accept(ASTVisitor& visitor) override;
 
+	void preprocess(const std::string& proc_name){
+		//
+	}
 };
 
 class VariableExpr : public Expression {
@@ -51,6 +60,10 @@ public:
 	std::string name;
 	VariableExpr(const std::string& var) : name(var) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->name = "0_" + proc_name + "_" + this->name;
+	}
 };
 
 class ArrayAccessWithIdExpr : public Expression {
@@ -60,6 +73,11 @@ public:
 	ArrayAccessWithIdExpr(const std::string&name, std::string idx)
 		: array_name(name), index(idx) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->array_name = "0_" + proc_name + "_" + this->array_name;
+		this->index = "0_" + proc_name + "_" + this->index;
+	}
 };
 
 class ArrayAccessWithNumExpr : public Expression {
@@ -69,6 +87,10 @@ public:
 	ArrayAccessWithNumExpr(const std::string&name, int64_t idx)
 		: array_name(name), index(std::size_t(idx)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->array_name = "0_" + proc_name + "_" + this->array_name;
+	}
 };
 
 class ArrayDeclarationExpr : public Expression {
@@ -81,6 +103,10 @@ public:
 				int64_t from, int64_t to)
 		: var(variable), from(from), to(to) {}
 	void accept(ASTVisitor& visitor) override;	
+
+	void preprocess(const std::string& proc_name){
+		this->var = "0_" + proc_name + "_" + this->var;
+	}
 };
 
 class VariableDeclarationExpr : public Expression {
@@ -90,6 +116,10 @@ public:
 	VariableDeclarationExpr(std::string variable)
 		: var(variable) {}
 	void accept(ASTVisitor& visitor) override;	
+
+	void preprocess(const std::string& proc_name){
+		this->var = "0_" + proc_name + "_" + this->var;
+	}
 };
 
 class VariableArgDeclExpr : public Expression{
@@ -99,6 +129,11 @@ public:
 	VariableArgDeclExpr(std::string variable)
 		: var(variable) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		var.erase(std::remove_if(var.begin(), var.end(), ::isspace), var.end());
+		this->var = "0_" + proc_name + "_" + this->var;
+	}
 };
 
 class ArrayArgDeclExpr : public Expression{
@@ -108,6 +143,11 @@ public:
 	ArrayArgDeclExpr(std::string variable)
 		: var(variable) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		var.erase(std::remove_if(var.begin(), var.end(), ::isspace), var.end());
+		this->var = "0_" + proc_name + "_" + this->var;
+	}
 };
 
 class ProcedureHeadExpr : public Expression {
@@ -119,6 +159,12 @@ public:
 			std::vector<std::unique_ptr<Expression>> variables)
 		: proc_name(name), vars(std::move(variables)) {}
 	void accept(ASTVisitor& visitor) override;	
+
+	void preprocess(const std::string& proc_name){
+		for(auto& var : this->vars){
+			var->preprocess(proc_name);
+		}
+	}
 };
 
 class BinaryOpExpr : public Expression{
@@ -131,6 +177,11 @@ public:
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
 
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->left->preprocess(proc_name);
+		this->right->preprocess(proc_name);
+	}
 };
 
 class ConditionExpr : public Expression{
@@ -143,6 +194,11 @@ public:
 		: op(opr), left(std::move(lhs)), right(std::move(rhs)) {}
 
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->left->preprocess(proc_name);
+		this->right->preprocess(proc_name);
+	}
 };
 
 
@@ -158,6 +214,11 @@ public:
 	AssignStmt(std::unique_ptr<Expression> var, std::unique_ptr<Expression> val) 
 		: variable(std::move(var)), value(std::move(val)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->variable->preprocess(proc_name);
+		this->value->preprocess(proc_name);
+	}
 };
 
 class WhileStmt : public Statement{
@@ -168,6 +229,14 @@ public:
 			std::vector<std::unique_ptr<Statement>> b)
 		: body(std::move(b)), condition(std::move(cond)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->condition->preprocess(proc_name);
+
+		for(auto& stmt : this->body){
+			stmt->preprocess(proc_name);
+		}
+	}
 };
 
 class ForStmt : public Statement{
@@ -185,6 +254,17 @@ public:
 		: iterator(iter), from(std::move(start)), to(std::move(end)), 
 			body(std::move(b)), downto(down) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->iterator = "0_" + proc_name + "_" + iterator;
+
+		this->from->preprocess(proc_name);
+		this->to->preprocess(proc_name);
+
+		for(auto& stmt : this->body){
+			stmt->preprocess(proc_name);
+		}
+	}
 };
 
 class RepeatUntilStmt : public Statement{
@@ -195,6 +275,15 @@ public:
 			std::unique_ptr<Expression> cond)
 		: body(std::move(b)), condition(std::move(cond)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->condition->preprocess(proc_name);
+
+		for(auto& stmt : this->body){
+			stmt->preprocess(proc_name);
+		}
+	}
+
 };
 
 class IfStmt : public Statement{
@@ -207,6 +296,18 @@ public:
 			std::vector<std::unique_ptr<Statement>> else_b)
 		: condition(std::move(cond)), then_body(std::move(then_b)), else_body(std::move(else_b)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->condition->preprocess(proc_name);
+
+		for(auto& stmt : this->then_body){
+			stmt->preprocess(proc_name);
+		}
+
+		for(auto& stmt : this->else_body){
+			stmt->preprocess(proc_name);
+		}
+	}
 };
 
 class ProcedureCallStmt : public Statement{
@@ -217,6 +318,12 @@ public:
 			std::vector<std::string> args)
 		: name(proc_name), arguments(std::move(args)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		for(auto& arg : this->arguments){
+			arg = "0_" + proc_name + "_" + arg;
+		}
+	}
 };
 
 class ReadStmt : public Statement{
@@ -224,6 +331,10 @@ public:
 	std::unique_ptr<Expression> variable;
 	ReadStmt(std::unique_ptr<Expression> var) : variable(std::move(var)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->variable->preprocess(proc_name);
+	}
 };
 
 class WriteStmt : public Statement{
@@ -231,6 +342,10 @@ public:
 	std::unique_ptr<Expression>value;
 	WriteStmt(std::unique_ptr<Expression> val) : value(std::move(val)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	void preprocess(const std::string& proc_name){
+		this->value->preprocess(proc_name);
+	}
 };
 
 
@@ -247,6 +362,15 @@ public:
 			std::vector<std::unique_ptr<Statement>> b)
 		: head(std::move(head)), parameters(std::move(params)), body(std::move(b)) {}
 	void accept(ASTVisitor& visitor) override;
+
+	/*
+	preprocess:
+		zmien nazwy variablow z <var> na <proc_name>_<var>
+		zmien nazwy array z <arr> na <proc_name>_<arr>
+				<arr_from> na <proc_name>_<arr>_from
+				<arr_to> na <proc_name>_<arr>_to
+	*/
+
 };
 
 class Main : public ASTNode {};
