@@ -21,7 +21,9 @@ struct ArrayInfo{
 
 struct ProcedureInfo{
 	std::size_t proc_start;
-	std::unordered_map<std::string, bool> param_type; //false -> varaible. true -> arr
+	std::vector<bool> param_type; //false -> varaible. true -> arr
+	std::vector<std::string> param_names;
+	std::size_t rtrn_addr = 0;
 };
 
 class ASTCodeGenerator : public ASTVisitor{
@@ -119,8 +121,6 @@ public:
 
 		alloc_mem(expr.var);
 
-		curr_proc_decl[expr.var] = false;
-
 		expr.set_num_instr(0);
 	}
 
@@ -136,8 +136,6 @@ public:
 
 		arr_info[expr.var] = {base_addr, from_addr, to_addr};
 			
-		curr_proc_decl[expr.var] = true;
-
 		expr.set_num_instr(0);
 	}
 
@@ -148,14 +146,26 @@ public:
 		}
 
 		std::size_t proc_start = this->instructions.size();
-		//std::size_t decl_num_instr = 0;
+
+		std::vector<bool> param_types;
+		std::vector<std::string> param_names;
 
 		for(auto& decl : expr.vars){
 			decl->accept(*this);
+			if(auto var_arg = dynamic_cast<VariableArgDeclExpr*>(decl.get())){
+				param_types.push_back(false);
+				param_names.push_back(var_arg->var);
+			}
+			else if(auto var_arg = dynamic_cast<ArrayArgDeclExpr*>(decl.get())){
+				param_types.push_back(true);
+				param_names.push_back(var_arg->var);
+			}
 		}
 
-		this->procedures[expr.proc_name] = {proc_start, curr_proc_decl};
-		curr_proc_decl.clear();
+		std::size_t ret_addr = alloc_mem("00_" + expr.proc_name + "_returnaddr");
+
+		this->procedures[expr.proc_name] = {proc_start, param_types, 
+						param_names, ret_addr};
 	}
 
 	void visit(BinaryOpExpr& expr) override{
@@ -747,6 +757,7 @@ public:
 		emit("JNEG " + std::to_string(body_num_instr + 5),
 				jzero_pos);
 
+		num_instr += 1;
 
 		loop_iterators.erase(stmt.iterator);
 		var_map.erase(stmt.iterator);
@@ -818,8 +829,107 @@ public:
 	}
 
 	void visit(ProcedureCallStmt& stmt) override{
-		//auto& proc_info = stmt.name;
+		auto& proc_info = procedures[stmt.name];
 
+		if(stmt.arguments.size() != proc_info.param_type.size()){
+			throw std::runtime_error("wrong number of arguments to procedure: ");
+		}
+
+		std::size_t num_instr = 0;
+
+		std::size_t ctr = 0;
+		for(auto& arg : stmt.arguments){
+			if(arr_info.find(arg) != arr_info.end()){
+				if(proc_info.param_type[ctr] == false){
+					throw std::runtime_error(
+						std::to_string(ctr) + 
+						" argument: '" + 
+						arg + "' of procedure " +
+						stmt.name + " should be a variable");
+				}
+
+				auto& arg_info = arr_info[arg];
+				auto& info = arr_info[proc_info.param_names[ctr]];
+
+				emit("LOAD " + std::to_string(arg_info.base_addr));
+				emit("STORE " + std::to_string(info.base_addr));
+
+				emit("LOAD " + std::to_string(arg_info.from_addr));
+				emit("STORE " + std::to_string(info.from_addr));
+
+				emit("LOAD " + std::to_string(arg_info.to_addr));
+				emit("STORE " + std::to_string(info.to_addr));
+
+				num_instr += 6;
+			}
+			else if(var_map.find(arg) != var_map.end()){
+				if(proc_info.param_type[ctr] == true){
+					throw std::runtime_error(
+						std::to_string(ctr) + 
+						" argument: '" + 
+						arg + "' of procedure " +
+						stmt.name + " should be an array");
+				}
+
+				std::size_t arg_addr = var_map[arg];
+				std::size_t addr = var_map[proc_info.param_names[ctr]];
+
+				std::cout << "addr " << addr << std::endl;
+
+				emit("LOAD " + std::to_string(arg_addr));
+				emit("STORE " + std::to_string(addr));
+
+				num_instr += 2;
+			}
+			else{
+				throw std::runtime_error("undeclared variable: '" +
+						arg + "'");
+			}
+
+			ctr++;
+		}
+
+		emit("SET " + std::to_string(this->instructions.size() + 5));
+		emit("STORE " + std::to_string(proc_info.rtrn_addr));
+		emit("SET " + std::to_string(proc_info.proc_start));
+		emit("RTRN 0");
+
+		num_instr += 4;
+
+		/*
+		for(auto& arg : stmt.arguments){
+			if(arr_info.find(arg) != arr_info.end()){
+				auto& arg_info = arr_info[arg];
+				auto& info = arr_info[proc_info.param_names[ctr]];
+
+				emit("LOAD " + info.base_addr);
+				emit("STORE " + arg_info.base_addr);
+
+				emit("LOAD " + arg_info.from_addr);
+				emit("STORE " + info.from_addr);
+
+				emit("LOAD " + arg_info.to_addr);
+				emit("STORE " + std::to_string(info.to_addr));
+
+				num_instr += 6;
+			}
+			else{
+				std::size_t arg_addr = var_map[arg];
+				std::size_t addr = var_map[proc_info.param_names[ctr]];
+
+				std::cout << "addr " << addr << std::endl;
+
+				emit("LOAD " + std::to_string(arg_addr));
+				emit("STORE " + std::to_string(addr));
+
+				num_instr += 2;
+			}
+
+			ctr++;
+		}
+		*/
+
+		stmt.set_num_instr(num_instr);
 	}
 
 	void visit(ReadStmt& stmt) override{
@@ -928,7 +1038,11 @@ public:
 			num_instr += command->get_num_instr();
 		}
 
-		procedure.set_num_instr(num_instr);
+		auto& pinfo = procedures[proc_name];
+		std::size_t raddr = pinfo.rtrn_addr;
+		emit("RTRN " + std::to_string(raddr));
+
+		procedure.set_num_instr(1 + num_instr);
 	}
 
 	void visit(MainProcedure& main) override{
@@ -955,17 +1069,24 @@ public:
 	}
 
 	void visit(Program& program) override{
-		std::size_t num_instr = 1;
+		std::size_t num_instr = 2;
+
+		emit("JUMP ?");
 
 		for(auto& proc : program.procedures){
 			proc->accept(*this);
 			num_instr += proc->get_num_instr();
 		}
+		emit("JUMP " + std::to_string(num_instr), 0);
+
 		program.main->accept(*this);
 		num_instr += program.main->get_num_instr();
 
+
 		emit("HALT");
 		program.set_num_instr(num_instr);
+
+		std::cout << "num instructions: " << num_instr << std::endl;
 	}
 
 	std::size_t alloc_mem(std::string name, std::size_t arr_size = 0){
@@ -1047,10 +1168,8 @@ private:
 	std::unordered_map<std::string, ArrayInfo> arr_info;
 	std::unordered_map<std::string, ProcedureInfo> procedures;
 
-	std::unordered_map<std::string, bool> curr_proc_decl;
-
-	void emit(const std::string& instruction, std::size_t pos = 0){
-		if(pos == 0){
+	void emit(const std::string& instruction, int64_t pos = -1){
+		if(pos == -1){
 			instructions.push_back(instruction);
 		}
 		else{
