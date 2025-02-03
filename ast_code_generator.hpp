@@ -300,11 +300,13 @@ public:
 
 			emit("LOAD " + std::to_string(temp3_addr));
 
+			/*
 			free_temp_memory(temp2);
 			free_temp_memory(temp3);
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+			*/
 
 			expr.set_num_instr(49 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
@@ -411,11 +413,13 @@ public:
 
 			emit("LOAD " + std::to_string(temp2_addr));
 
+			/*
 			free_temp_memory(temp2);
 			free_temp_memory(temp3);
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+			*/
 
 			expr.set_num_instr(58 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
@@ -514,12 +518,14 @@ public:
 			emit("JUMP 2");
 
 			emit("LOAD " + std::to_string(temp_addr));
-
+			
+			/*
 			free_temp_memory(temp2);
 			free_temp_memory(temp3);
 			free_temp_memory(temp4);
 			free_temp_memory(temp_lsign);
 			free_temp_memory(temp_rsign);
+			*/
 
 			expr.set_num_instr(51 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
@@ -528,7 +534,7 @@ public:
 			throw std::runtime_error("unsupported operator");
 		}
 
-		free_temp_memory(temp);
+		//free_temp_memory(temp);
 	}
 
 	void visit(ConditionExpr& expr) override{
@@ -606,7 +612,7 @@ public:
 			throw std::runtime_error("unsupported operator");
 		}
 
-		free_temp_memory(temp);
+		//free_temp_memory(temp);
 	}
 
 	void visit(AssignStmt& stmt) override{
@@ -689,7 +695,7 @@ public:
 		emit("STORE " + std::to_string(temp_addr));
 		stmt.value->accept(*this);
 		emit("STOREI " + std::to_string(temp_addr));
-		free_temp_memory(temp);
+		//free_temp_memory(temp);
 
 		stmt.set_num_instr(2 + num_instr + stmt.value->get_num_instr());
 	}
@@ -797,8 +803,10 @@ public:
 		var_map.erase(stmt.iterator);
 		var_map.erase("1_" + stmt.iterator + "_value");
 
+		/*
 		free_temp_memory(temp);
 		free_temp_memory(temp_one);
+		*/
 
 		stmt.set_num_instr(num_instr);
 	}
@@ -909,7 +917,9 @@ public:
 				std::size_t arg_addr = var_map[arg];
 				std::size_t addr = var_map[proc_info.param_names[ctr]];
 
-				std::cout << "addr " << addr << std::endl;
+				std::cout << "arg: " << arg << std::endl;
+				std::cout << "arg addr " << arg_addr << std::endl;
+				std::cout << "procedure arg addr " << addr << std::endl;
 
 				emit("LOAD " + std::to_string(arg_addr));
 				emit("STORE " + std::to_string(addr));
@@ -930,39 +940,6 @@ public:
 		emit("RTRN 0");
 
 		num_instr += 4;
-
-		/*
-		for(auto& arg : stmt.arguments){
-			if(arr_info.find(arg) != arr_info.end()){
-				auto& arg_info = arr_info[arg];
-				auto& info = arr_info[proc_info.param_names[ctr]];
-
-				emit("LOAD " + info.base_addr);
-				emit("STORE " + arg_info.base_addr);
-
-				emit("LOAD " + arg_info.from_addr);
-				emit("STORE " + info.from_addr);
-
-				emit("LOAD " + arg_info.to_addr);
-				emit("STORE " + std::to_string(info.to_addr));
-
-				num_instr += 6;
-			}
-			else{
-				std::size_t arg_addr = var_map[arg];
-				std::size_t addr = var_map[proc_info.param_names[ctr]];
-
-				std::cout << "addr " << addr << std::endl;
-
-				emit("LOAD " + std::to_string(arg_addr));
-				emit("STORE " + std::to_string(addr));
-
-				num_instr += 2;
-			}
-
-			ctr++;
-		}
-		*/
 
 		stmt.set_num_instr(num_instr);
 	}
@@ -1005,9 +982,9 @@ public:
 			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
 			//emit("SET " + std::to_string(info.base_addr));
-			emit("LOAD " + std::to_string(info.base_addr));
+			emit("LOADI " + std::to_string(iit->second));
+			emit("ADD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
-			emit("ADD " + std::to_string(iit->second));
 
 			num_instr = 3;
 		}
@@ -1037,7 +1014,7 @@ public:
 		emit("GET 0");
 		emit("STOREI " + std::to_string(temp_addr));
 
-		free_temp_memory(temp);
+		//free_temp_memory(temp);
 
 		stmt.set_num_instr(3 + num_instr);
 	}
