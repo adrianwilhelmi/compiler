@@ -701,6 +701,7 @@ public:
 	}
 
 	void visit(WhileStmt& stmt) override{
+		std::size_t while_start = instructions.size();
 		stmt.condition->accept(*this);
 
 		std::size_t body_start = this->instructions.size();
@@ -718,8 +719,10 @@ public:
 		std::size_t num_instr = stmt.condition->get_num_instr();
 		num_instr += body_num_instr;
 
-		//emit("JUMP -" + std::to_string(num_instr + 1));
-		emit("JUMP -" + std::to_string(num_instr));
+		std::size_t while_end = instructions.size();
+
+		emit("JUMP -" + std::to_string(while_end - while_start));
+		//emit("JUMP -" + std::to_string(num_instr));
 		emit("JPOS " + std::to_string(body_num_instr + 3), body_start);
 		emit("JNEG " + std::to_string(body_num_instr + 2), body_start + 1);
 
@@ -756,6 +759,8 @@ public:
 		std::size_t one_addr = var_map[temp_one];
 		emit("SET 1");
 		emit("STORE " + std::to_string(one_addr));
+
+		std::size_t for_start = instructions.size();
 
 		if(stmt.downto){
 			emit("LOADI " + std::to_string(iter_addr));
@@ -794,7 +799,10 @@ public:
 
 		num_instr += 3;
 
-		emit("JUMP -" + std::to_string(body_num_instr + 6));
+		std::size_t for_end = instructions.size();
+
+		emit("JUMP -" + std::to_string(for_end - for_start));
+		//emit("JUMP -" + std::to_string(body_num_instr + 6));
 		emit("JNEG " + std::to_string(body_num_instr + 5),
 				jzero_pos);
 
@@ -845,9 +853,11 @@ public:
 			then_num_instr += command->get_num_instr();
 		}
 
-		emit("JPOS " + std::to_string(then_num_instr + 3), 
+		//std::size_t then_end = this->instructions.size();
+
+		emit("JPOS " + std::to_string(then_num_instr + 2), 
 			then_start);
-		emit("JNEG " + std::to_string(then_num_instr + 2),
+		emit("JNEG " + std::to_string(then_num_instr + 1),
 			then_start + 1);
 
 		num_instr += then_num_instr;
@@ -1085,9 +1095,9 @@ public:
 	}
 
 	void visit(Program& program) override{
-		std::size_t num_instr = 1;
-
+		std::size_t num_instr = 0;
 		if(!program.procedures.empty()){
+			num_instr = 1;
 			emit("JUMP ?");
 		}
 
