@@ -131,7 +131,7 @@ public:
 	}
 
 	void visit(VariableDeclarationExpr& expr) override{
-		std::size_t addr = alloc_mem("1_" + expr.var + "_value");
+		std::size_t addr = alloc_mem("2_" + expr.var + "_value");
 		std::size_t addr_addr = alloc_mem(expr.var);
 
 		emit("SET " + std::to_string(addr));
@@ -733,9 +733,25 @@ public:
 	void visit(ForStmt& stmt) override{
 		std::size_t num_instr = 0;
 
-		std::size_t iter = alloc_mem("1_" + stmt.iterator + "_value");
+		std::size_t iter;
+		std::size_t iter_addr;
 
-		std::size_t iter_addr = alloc_mem(stmt.iterator);
+		bool free_mem = false;
+		if(var_map.find(stmt.iterator) == var_map.end()){
+			free_mem = true;
+			iter = alloc_mem("1_" + stmt.iterator + "_value");
+			iter_addr = alloc_mem(stmt.iterator);
+		}
+		else{
+			iter = var_map["2_" + stmt.iterator + "_value"];
+			iter_addr = var_map[stmt.iterator];
+		}
+
+		/*
+		std::size_t iter = alloc_mem("1_" + stmt.iterator + "_iterator_value");
+
+		std::size_t iter_addr = alloc_mem("1_" + stmt.iterator + "_iterator");
+		*/
 		emit("SET " + std::to_string(iter));
 		emit("STORE " + std::to_string(iter_addr));
 		num_instr += 2;
@@ -808,9 +824,17 @@ public:
 
 		num_instr += 1;
 
+		/*
+		loop_iterators.erase("1_" + stmt.iterator + "_iterator");
+		var_map.erase("1_" + stmt.iterator + "_iterator");
+		var_map.erase("1_" + stmt.iterator + "_iterator_value");
+		*/
+
 		loop_iterators.erase(stmt.iterator);
-		var_map.erase(stmt.iterator);
-		var_map.erase("1_" + stmt.iterator + "_value");
+		if(free_mem){
+			var_map.erase(stmt.iterator);
+			var_map.erase("1_" + stmt.iterator + "_value");
+		}
 
 		/*
 		free_temp_memory(temp);
@@ -855,10 +879,19 @@ public:
 
 		//std::size_t then_end = this->instructions.size();
 
-		emit("JPOS " + std::to_string(then_num_instr + 2), 
-			then_start);
-		emit("JNEG " + std::to_string(then_num_instr + 1),
-			then_start + 1);
+		if(stmt.else_body.empty()){
+			emit("JPOS " + std::to_string(then_num_instr + 2), 
+				then_start);
+			emit("JNEG " + std::to_string(then_num_instr + 1),
+				then_start + 1);
+		}
+		else{
+			emit("JPOS " + std::to_string(then_num_instr + 3), 
+				then_start);
+			emit("JNEG " + std::to_string(then_num_instr + 2),
+				then_start + 1);
+		}
+
 
 		num_instr += then_num_instr;
 
