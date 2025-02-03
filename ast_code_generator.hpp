@@ -14,9 +14,9 @@
 #include"ast_visitor.hpp"
 
 struct ArrayInfo{
-	std::size_t base_addr;
-	std::size_t from_addr;
-	std::size_t to_addr;
+	std::size_t base_addr;	// adres komorki ktora zawiera adres poczatku tab.
+	std::size_t from_addr;	// adres komorki ktora zawiera zadeklarowany poczatek
+	std::size_t to_addr;	// adres komorki kotra zawiera zadeklarowany koniec
 };
 
 struct ProcedureInfo{
@@ -25,6 +25,18 @@ struct ProcedureInfo{
 	std::vector<std::string> param_names;
 	std::size_t rtrn_addr = 0;
 };
+
+/*
+zmienna ma:
+	nazwe
+	wartosc
+	adres
+
+dlatego dla kazdej zmiennej bedzie przechowywany:
+	mapa nazwa -> adres adresu (w sensie ze nie wartosci)
+	adres (wskazuje na wartosc)
+	wartosc
+*/
 
 class ASTCodeGenerator : public ASTVisitor{
 public:
@@ -46,7 +58,7 @@ public:
 						+ expr.name);
 		}
 
-		emit("LOAD " + std::to_string(it->second)); 
+		emit("LOADI " + std::to_string(it->second)); 
 		expr.set_num_instr(1);
 	}
 
@@ -65,10 +77,11 @@ public:
 
 		const auto&info = it->second;
 
-		emit("SET " + std::to_string(info.base_addr));
+		emit("LOAD " + std::to_string(info.base_addr));
+		//emit("LOADI " + std::to_string(info.base_addr));
 		emit("SUB " + std::to_string(info.from_addr));
-		emit("ADD " + std::to_string(iit->second));
-		emit("LOADI 0");
+		emit("ADDI " + std::to_string(iit->second));
+		emit("LOADI 0"); // LOAD CZY LOADI ?!?!?
 
 		expr.set_num_instr(4);
 	}
@@ -82,11 +95,13 @@ public:
 
 		const auto& info = it->second;
 
-		emit("SET " + std::to_string((int64_t)info.base_addr + expr.index));
+		emit("SET " + std::to_string(expr.index));
+		emit("ADD " + std::to_string(info.base_addr));
+		//emit("ADDI " + std::to_string(info.base_addr));
 		emit("SUB " + std::to_string(info.from_addr));
 		emit("LOADI 0");
 
-		expr.set_num_instr(3);
+		expr.set_num_instr(4);
 	}
 
 	void visit(ArrayDeclarationExpr& expr) override{
@@ -94,8 +109,15 @@ public:
 			throw std::runtime_error("invalid arr declaration" + expr.var + " [" + std::to_string(expr.from) + ":" + std::to_string(expr.to) + "]");
 		}
 
+		std::size_t size = expr.to - expr.from + 1;
+
+		std::size_t base_address_address = alloc_mem(expr.var);
 		std::size_t from_addr = alloc_mem("1_" + expr.var + "_from");
 		std::size_t to_addr = alloc_mem("1_" + expr.var + "_to");
+		std::size_t base_address = alloc_mem("1_" + expr.var + "_base", size);
+
+		emit("SET " + std::to_string(base_address));
+		emit("STORE " + std::to_string(base_address_address));
 
 		emit("SET " + std::to_string(expr.from));
 		emit("STORE " + std::to_string(from_addr));
@@ -103,16 +125,19 @@ public:
 		emit("SET " + std::to_string(expr.to));
 		emit("STORE " + std::to_string(to_addr));
 
-		std::size_t size = expr.to - expr.from + 1;
-		std::size_t base_address = alloc_mem(expr.var, size);
-		arr_info[expr.var] = {base_address, from_addr, to_addr};
+		arr_info[expr.var] = {base_address_address, from_addr, to_addr};
 
-		expr.set_num_instr(4);
+		expr.set_num_instr(6);
 	}
 
 	void visit(VariableDeclarationExpr& expr) override{
-		alloc_mem(expr.var);
-		expr.set_num_instr(0);
+		std::size_t addr = alloc_mem("1_" + expr.var + "_value");
+		std::size_t addr_addr = alloc_mem(expr.var);
+
+		emit("SET " + std::to_string(addr));
+		emit("STORE " + std::to_string(addr_addr));
+
+		expr.set_num_instr(2);
 	}
 
 	void visit(VariableArgDeclExpr& expr) override{
@@ -130,11 +155,11 @@ public:
 		std::cout << expr.var + "_from" << std::endl;
 		std::cout << expr.var + "_to" << std::endl;
 
-		std::size_t base_addr = alloc_mem(expr.var);
+		std::size_t base_addr_addr = alloc_mem(expr.var);
 		std::size_t from_addr = alloc_mem(expr.var + "_from");
 		std::size_t to_addr = alloc_mem(expr.var + "_to");
 
-		arr_info[expr.var] = {base_addr, from_addr, to_addr};
+		arr_info[expr.var] = {base_addr_addr, from_addr, to_addr};
 			
 		expr.set_num_instr(0);
 	}
@@ -603,7 +628,8 @@ public:
 				throw std::runtime_error("loop iterator '" + expr->name + "' modification");
 			}
 
-			emit("SET " + std::to_string(it->second));
+			//emit("SET " + std::to_string(it->second));
+			emit("LOAD " + std::to_string(it->second));
 
 			num_instr = 1;
 		}
@@ -628,9 +654,9 @@ public:
 
 			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
-			emit("SET " + std::to_string(info.base_addr));
+			emit("LOADI " + std::to_string(iit->second));
+			emit("ADD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
-			emit("ADD " + std::to_string(iit->second));
 
 			num_instr = 3;
 		}
@@ -649,10 +675,12 @@ public:
 
 			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
-			emit("SET " + std::to_string((int64_t)info.base_addr + expr->index));
+			emit("SET " + std::to_string(expr->index));
+			emit("ADD " + std::to_string(info.base_addr));
+			//emit("SET " + std::to_string((int64_t)info.base_addr + expr->index));
 			emit("SUB " + std::to_string(info.from_addr));
 
-			num_instr = 2;
+			num_instr = 3;
 		}
 		else{
 			throw std::runtime_error("Assign: unknown type");
@@ -695,14 +723,20 @@ public:
 	void visit(ForStmt& stmt) override{
 		std::size_t num_instr = 0;
 
-		alloc_mem(stmt.iterator);
-		std::size_t iter_addr = var_map[stmt.iterator];
+		std::size_t iter = alloc_mem("1_" + stmt.iterator + "_value");
+
+		std::size_t iter_addr = alloc_mem(stmt.iterator);
+		emit("SET " + std::to_string(iter));
+		emit("STORE " + std::to_string(iter_addr));
+		num_instr += 2;
+
+		//std::size_t iter_addr = var_map[stmt.iterator];
 
 		loop_iterators.insert(stmt.iterator);
 
 		stmt.from->accept(*this);
 		num_instr += stmt.from->get_num_instr();
-		emit("STORE " + std::to_string(iter_addr));
+		emit("STOREI " + std::to_string(iter_addr));
 
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
@@ -717,13 +751,13 @@ public:
 		emit("STORE " + std::to_string(one_addr));
 
 		if(stmt.downto){
-			emit("LOAD " + std::to_string(iter_addr));
+			emit("LOADI " + std::to_string(iter_addr));
 			emit("SUB " + std::to_string(temp_addr));
 			emit("JNEG ?");
 		}
 		else{
 			emit("LOAD " + std::to_string(temp_addr));
-			emit("SUB " + std::to_string(iter_addr));
+			emit("SUBI " + std::to_string(iter_addr));
 			emit("JNEG ?");
 		}
 
@@ -741,14 +775,14 @@ public:
 		num_instr += body_num_instr;
 
 		if(stmt.downto){
-			emit("LOAD " + std::to_string(iter_addr));
+			emit("LOADI " + std::to_string(iter_addr));
 			emit("SUB " + std::to_string(one_addr));
-			emit("STORE " + std::to_string(iter_addr));
+			emit("STOREI " + std::to_string(iter_addr));
 		}
 		else{
-			emit("LOAD " + std::to_string(iter_addr));
+			emit("LOADI " + std::to_string(iter_addr));
 			emit("ADD " + std::to_string(one_addr));
-			emit("STORE " + std::to_string(iter_addr));
+			emit("STOREI " + std::to_string(iter_addr));
 		}
 
 		num_instr += 3;
@@ -761,6 +795,7 @@ public:
 
 		loop_iterators.erase(stmt.iterator);
 		var_map.erase(stmt.iterator);
+		var_map.erase("1_" + stmt.iterator + "_value");
 
 		free_temp_memory(temp);
 		free_temp_memory(temp_one);
@@ -947,7 +982,8 @@ public:
 							+ expr->name);
 			}
 
-			emit("SET " + std::to_string(it->second));
+			//emit("SET " + std::to_string(it->second));
+			emit("LOAD " + std::to_string(it->second));
 
 			num_instr = 1;
 		}
@@ -968,7 +1004,8 @@ public:
 
 			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
-			emit("SET " + std::to_string(info.base_addr));
+			//emit("SET " + std::to_string(info.base_addr));
+			emit("LOAD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
 			emit("ADD " + std::to_string(iit->second));
 
@@ -985,10 +1022,11 @@ public:
 
 			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
 
-			emit("SET " + std::to_string(info.base_addr + expr->index));
+			emit("SET " + std::to_string(expr->index));
+			emit("ADD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
 
-			num_instr = 2;
+			num_instr = 3;
 		}
 		else{
 			throw std::runtime_error("Read: unknown type");
@@ -1069,15 +1107,20 @@ public:
 	}
 
 	void visit(Program& program) override{
-		std::size_t num_instr = 2;
+		std::size_t num_instr = 1;
 
-		emit("JUMP ?");
+		if(!program.procedures.empty()){
+			emit("JUMP ?");
+		}
 
 		for(auto& proc : program.procedures){
 			proc->accept(*this);
 			num_instr += proc->get_num_instr();
 		}
-		emit("JUMP " + std::to_string(num_instr), 0);
+		if(!program.procedures.empty()){
+			emit("JUMP " + std::to_string(num_instr), 0);
+			num_instr += 1;
+		}
 
 		program.main->accept(*this);
 		num_instr += program.main->get_num_instr();
@@ -1164,7 +1207,7 @@ private:
 	
 	std::set<std::string> loop_iterators;
 
-	std::unordered_map<std::string, std::size_t> var_map;	
+	std::unordered_map<std::string, std::size_t> var_map;	//nazwa -> adres adresu
 	std::unordered_map<std::string, ArrayInfo> arr_info;
 	std::unordered_map<std::string, ProcedureInfo> procedures;
 
