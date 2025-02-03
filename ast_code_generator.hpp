@@ -718,9 +718,10 @@ public:
 		std::size_t num_instr = stmt.condition->get_num_instr();
 		num_instr += body_num_instr;
 
-		emit("JUMP -" + std::to_string(num_instr + 1));
-		emit("JPOS " + std::to_string(body_num_instr + 2), body_start);
-		emit("JNEG " + std::to_string(body_num_instr + 1), body_start + 1);
+		//emit("JUMP -" + std::to_string(num_instr + 1));
+		emit("JUMP -" + std::to_string(num_instr));
+		emit("JPOS " + std::to_string(body_num_instr + 3), body_start);
+		emit("JNEG " + std::to_string(body_num_instr + 2), body_start + 1);
 
 		num_instr += 3;
 		stmt.set_num_instr(num_instr);
@@ -934,7 +935,7 @@ public:
 			ctr++;
 		}
 
-		emit("SET " + std::to_string(this->instructions.size() + 5));
+		emit("SET " + std::to_string(this->instructions.size() + 4));
 		emit("STORE " + std::to_string(proc_info.rtrn_addr));
 		emit("SET " + std::to_string(proc_info.proc_start));
 		emit("RTRN 0");
@@ -1096,12 +1097,12 @@ public:
 		}
 		if(!program.procedures.empty()){
 			emit("JUMP " + std::to_string(num_instr), 0);
-			num_instr += 1;
 		}
 
 		program.main->accept(*this);
 		num_instr += program.main->get_num_instr();
 
+		num_instr += 1;
 
 		emit("HALT");
 		program.set_num_instr(num_instr);
@@ -1172,6 +1173,16 @@ public:
 	}
 
 	void push_code_to_file(){
+		for(auto& proc : procedures){
+			std::cout << "procedure: " << proc.first << std::endl;
+			//auto& info = procedures[proc];
+			std::cout << "info: " << std::endl;
+			std::cout << "	proc_start: " << proc.second.proc_start << std::endl;
+			std::cout << "	rtrn_addr: " << proc.second.rtrn_addr << std::endl;
+		}
+
+
+
 		for(const auto& instr : this->instructions){
 			output_stream << instr << "\n";
 		}
