@@ -14,9 +14,9 @@
 #include"ast_visitor.hpp"
 
 struct ArrayInfo{
-	std::size_t base_addr;	// adres komorki ktora zawiera adres poczatku tab.
-	std::size_t from_addr;	// adres komorki ktora zawiera zadeklarowany poczatek
-	std::size_t to_addr;	// adres komorki kotra zawiera zadeklarowany koniec
+	std::size_t base_addr;
+	std::size_t from_addr;
+	std::size_t to_addr;
 };
 
 struct ProcedureInfo{
@@ -25,18 +25,6 @@ struct ProcedureInfo{
 	std::vector<std::string> param_names;
 	std::size_t rtrn_addr = 0;
 };
-
-/*
-zmienna ma:
-	nazwe
-	wartosc
-	adres
-
-dlatego dla kazdej zmiennej bedzie przechowywany:
-	mapa nazwa -> adres adresu (w sensie ze nie wartosci)
-	adres (wskazuje na wartosc)
-	wartosc
-*/
 
 class ASTCodeGenerator : public ASTVisitor{
 public:
@@ -58,15 +46,35 @@ public:
 						+ expr.name);
 		}
 
+		auto ait = arr_info.find(expr.name);
+		if(ait != arr_info.end()){
+			throw std::runtime_error("array: '" 
+						+ expr.name + 
+						"' being used like a variable");
+		}
+
+		if(!initialized[expr.name]){
+			throw std::runtime_error("variable '" 
+						+ expr.name +
+						"' uninitialized");
+		}
+
 		emit("LOADI " + std::to_string(it->second)); 
 		expr.set_num_instr(1);
 	}
 
 	void visit(ArrayAccessWithIdExpr& expr) override{
+		auto vit = var_map.find(expr.array_name);
+		if(vit == var_map.end()){
+			throw std::runtime_error("undefined array: " 
+						+ expr.array_name);
+		}
+
 		auto it = arr_info.find(expr.array_name);
 		if(it == arr_info.end()){
-			throw std::runtime_error("undefined variable: " 
-						+ expr.array_name);
+			throw std::runtime_error("variable: '" 
+						+ expr.array_name +
+						"' being used like an array");
 		}
 
 		auto iit = var_map.find(expr.index);
@@ -75,29 +83,40 @@ public:
 						+ expr.index);
 		}
 
+		if(!initialized[expr.index]){
+			throw std::runtime_error("variable '" 
+						+ expr.index +
+						"' uninitialized");
+		}
+
 		const auto&info = it->second;
 
 		emit("LOAD " + std::to_string(info.base_addr));
-		//emit("LOADI " + std::to_string(info.base_addr));
 		emit("SUB " + std::to_string(info.from_addr));
 		emit("ADDI " + std::to_string(iit->second));
-		emit("LOADI 0"); // LOAD CZY LOADI ?!?!?
+		emit("LOADI 0");
 
 		expr.set_num_instr(4);
 	}
 
 	void visit(ArrayAccessWithNumExpr& expr) override{
+		auto vit = var_map.find(expr.array_name);
+		if(vit == var_map.end()){
+			throw std::runtime_error("undefined array: " 
+						+ expr.array_name);
+		}
+
 		auto it = arr_info.find(expr.array_name);
 		if(it == arr_info.end()){
-			throw std::runtime_error("undefined variable: " 
-						+ expr.array_name);
+			throw std::runtime_error("variable: '" 
+						+ expr.array_name +
+						"' being used like an array");
 		}
 
 		const auto& info = it->second;
 
 		emit("SET " + std::to_string(expr.index));
 		emit("ADD " + std::to_string(info.base_addr));
-		//emit("ADDI " + std::to_string(info.base_addr));
 		emit("SUB " + std::to_string(info.from_addr));
 		emit("LOADI 0");
 
@@ -141,26 +160,17 @@ public:
 	}
 
 	void visit(VariableArgDeclExpr& expr) override{
-		std::cout << "alokuje: " << std::endl;
-		std::cout << expr.var << std::endl;
-
 		alloc_mem(expr.var);
-
+		initialized[expr.var] = true;
 		expr.set_num_instr(0);
 	}
 
 	void visit(ArrayArgDeclExpr& expr) override{
-		std::cout << "alokuje: " << std::endl;
-		std::cout << expr.var << std::endl;
-		std::cout << expr.var + "_from" << std::endl;
-		std::cout << expr.var + "_to" << std::endl;
-
 		std::size_t base_addr_addr = alloc_mem(expr.var);
 		std::size_t from_addr = alloc_mem(expr.var + "_from");
 		std::size_t to_addr = alloc_mem(expr.var + "_to");
 
 		arr_info[expr.var] = {base_addr_addr, from_addr, to_addr};
-			
 		expr.set_num_instr(0);
 	}
 
@@ -189,6 +199,7 @@ public:
 
 		std::size_t ret_addr = alloc_mem("00_" + expr.proc_name + "_returnaddr");
 
+		this->initialized_proc[expr.proc_name] = false;
 		this->procedures[expr.proc_name] = {proc_start, param_types, 
 						param_names, ret_addr};
 	}
@@ -300,14 +311,6 @@ public:
 
 			emit("LOAD " + std::to_string(temp3_addr));
 
-			/*
-			free_temp_memory(temp2);
-			free_temp_memory(temp3);
-			free_temp_memory(temp4);
-			free_temp_memory(temp_lsign);
-			free_temp_memory(temp_rsign);
-			*/
-
 			expr.set_num_instr(49 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
@@ -413,14 +416,6 @@ public:
 
 			emit("LOAD " + std::to_string(temp2_addr));
 
-			/*
-			free_temp_memory(temp2);
-			free_temp_memory(temp3);
-			free_temp_memory(temp4);
-			free_temp_memory(temp_lsign);
-			free_temp_memory(temp_rsign);
-			*/
-
 			expr.set_num_instr(58 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
 		}
@@ -518,14 +513,6 @@ public:
 			emit("JUMP 2");
 
 			emit("LOAD " + std::to_string(temp_addr));
-			
-			/*
-			free_temp_memory(temp2);
-			free_temp_memory(temp3);
-			free_temp_memory(temp4);
-			free_temp_memory(temp_lsign);
-			free_temp_memory(temp_rsign);
-			*/
 
 			expr.set_num_instr(51 + expr.left->get_num_instr() 
 					+ expr.right->get_num_instr());
@@ -533,8 +520,6 @@ public:
 		else{
 			throw std::runtime_error("unsupported operator");
 		}
-
-		//free_temp_memory(temp);
 	}
 
 	void visit(ConditionExpr& expr) override{
@@ -611,13 +596,9 @@ public:
 		else{
 			throw std::runtime_error("unsupported operator");
 		}
-
-		//free_temp_memory(temp);
 	}
 
 	void visit(AssignStmt& stmt) override{
-		//stmt.variable->accept(*this);
-
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
 
@@ -630,20 +611,33 @@ public:
 							+ expr->name);
 			}
 
+			auto ait = arr_info.find(expr->name);
+			if(ait != arr_info.end()){
+				throw std::runtime_error("array: '" 
+							+ expr->name + 
+							"' being used like a variable");
+			}
+
 			if(loop_iterators.find(expr->name) != loop_iterators.end()){
 				throw std::runtime_error("loop iterator '" + expr->name + "' modification");
 			}
 
-			//emit("SET " + std::to_string(it->second));
 			emit("LOAD " + std::to_string(it->second));
 
 			num_instr = 1;
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithIdExpr*>(stmt.variable.get())){
+			auto vit = var_map.find(expr->array_name);
+			if(vit == var_map.end()){
+				throw std::runtime_error("undefined array: " 
+							+ expr->array_name);
+			}
+
 			auto it = arr_info.find(expr->array_name);
 			if(it == arr_info.end()){
-				throw std::runtime_error("undefined variable: " 
-							+ expr->array_name);
+				throw std::runtime_error("variable ': " 
+							+ expr->array_name +
+							"' being used like an array");
 			}
 
 			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
@@ -656,9 +650,13 @@ public:
 							+ expr->index);
 			}
 
-			const auto&info = it->second;
+			if(!initialized[expr->index]){
+				throw std::runtime_error("variable '" 
+							+ expr->index +
+							"' uninitialized");
+			}
 
-			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
+			const auto&info = it->second;
 
 			emit("LOADI " + std::to_string(iit->second));
 			emit("ADD " + std::to_string(info.base_addr));
@@ -667,10 +665,17 @@ public:
 			num_instr = 3;
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
+			auto vit = var_map.find(expr->array_name);
+			if(vit == var_map.end()){
+				throw std::runtime_error("undefined array: " 
+							+ expr->array_name);
+			}
+
 			auto it = arr_info.find(expr->array_name);
 			if(it == arr_info.end()){
-				throw std::runtime_error("undefined variable: " 
-							+ expr->array_name);
+				throw std::runtime_error("variable: '" 
+							+ expr->array_name +
+							"' being used like an array");
 			}
 
 			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
@@ -679,11 +684,8 @@ public:
 
 			const auto& info = it->second;
 
-			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
-
 			emit("SET " + std::to_string(expr->index));
 			emit("ADD " + std::to_string(info.base_addr));
-			//emit("SET " + std::to_string((int64_t)info.base_addr + expr->index));
 			emit("SUB " + std::to_string(info.from_addr));
 
 			num_instr = 3;
@@ -695,7 +697,10 @@ public:
 		emit("STORE " + std::to_string(temp_addr));
 		stmt.value->accept(*this);
 		emit("STOREI " + std::to_string(temp_addr));
-		//free_temp_memory(temp);
+
+		if(auto expr = dynamic_cast<VariableExpr*>(stmt.variable.get())){
+			initialized[expr->name] = true;
+		}
 
 		stmt.set_num_instr(2 + num_instr + stmt.value->get_num_instr());
 	}
@@ -722,7 +727,6 @@ public:
 		std::size_t while_end = instructions.size();
 
 		emit("JUMP -" + std::to_string(while_end - while_start));
-		//emit("JUMP -" + std::to_string(num_instr));
 		emit("JPOS " + std::to_string(body_num_instr + 3), body_start);
 		emit("JNEG " + std::to_string(body_num_instr + 2), body_start + 1);
 
@@ -746,17 +750,11 @@ public:
 			iter = var_map["2_" + stmt.iterator + "_value"];
 			iter_addr = var_map[stmt.iterator];
 		}
+		initialized[stmt.iterator] = true;
 
-		/*
-		std::size_t iter = alloc_mem("1_" + stmt.iterator + "_iterator_value");
-
-		std::size_t iter_addr = alloc_mem("1_" + stmt.iterator + "_iterator");
-		*/
 		emit("SET " + std::to_string(iter));
 		emit("STORE " + std::to_string(iter_addr));
 		num_instr += 2;
-
-		//std::size_t iter_addr = var_map[stmt.iterator];
 
 		loop_iterators.insert(stmt.iterator);
 
@@ -818,28 +816,18 @@ public:
 		std::size_t for_end = instructions.size();
 
 		emit("JUMP -" + std::to_string(for_end - for_start));
-		//emit("JUMP -" + std::to_string(body_num_instr + 6));
 		emit("JNEG " + std::to_string(body_num_instr + 5),
 				jzero_pos);
 
 		num_instr += 1;
 
-		/*
-		loop_iterators.erase("1_" + stmt.iterator + "_iterator");
-		var_map.erase("1_" + stmt.iterator + "_iterator");
-		var_map.erase("1_" + stmt.iterator + "_iterator_value");
-		*/
+		initialized[stmt.iterator] = false;
 
 		loop_iterators.erase(stmt.iterator);
 		if(free_mem){
 			var_map.erase(stmt.iterator);
 			var_map.erase("1_" + stmt.iterator + "_value");
 		}
-
-		/*
-		free_temp_memory(temp);
-		free_temp_memory(temp_one);
-		*/
 
 		stmt.set_num_instr(num_instr);
 	}
@@ -876,8 +864,6 @@ public:
 			command->accept(*this);
 			then_num_instr += command->get_num_instr();
 		}
-
-		//std::size_t then_end = this->instructions.size();
 
 		if(stmt.else_body.empty()){
 			emit("JPOS " + std::to_string(then_num_instr + 2), 
@@ -916,10 +902,22 @@ public:
 	}
 
 	void visit(ProcedureCallStmt& stmt) override{
+		auto pit = procedures.find(stmt.name);
+		if(pit == procedures.end()){
+			throw std::runtime_error("undefined procedure '"
+				+ stmt.name + "'");
+		}
+
+		if(!initialized_proc[stmt.name]){
+			throw std::runtime_error("recursion in procedure '"
+				+ stmt.name + "'");
+		}
+
 		auto& proc_info = procedures[stmt.name];
 
 		if(stmt.arguments.size() != proc_info.param_type.size()){
-			throw std::runtime_error("wrong number of arguments to procedure: ");
+			throw std::runtime_error("wrong number of arguments to procedure: "
+				+ stmt.name);
 		}
 
 		std::size_t num_instr = 0;
@@ -961,10 +959,6 @@ public:
 				std::size_t arg_addr = var_map[arg];
 				std::size_t addr = var_map[proc_info.param_names[ctr]];
 
-				std::cout << "arg: " << arg << std::endl;
-				std::cout << "arg addr " << arg_addr << std::endl;
-				std::cout << "procedure arg addr " << addr << std::endl;
-
 				emit("LOAD " + std::to_string(arg_addr));
 				emit("STORE " + std::to_string(addr));
 
@@ -983,14 +977,19 @@ public:
 		emit("SET " + std::to_string(proc_info.proc_start));
 		emit("RTRN 0");
 
+		for(auto& arg : stmt.arguments){
+			if(arr_info.find(arg) != arr_info.end()){
+				continue;
+			}
+			initialized[arg] = true;
+		}
+
 		num_instr += 4;
 
 		stmt.set_num_instr(num_instr);
 	}
 
 	void visit(ReadStmt& stmt) override{
-		//stmt.variable->accept(*this);
-
 		std::string temp = alloc_temp_memory();
 		std::size_t temp_addr = var_map[temp];
 
@@ -1003,16 +1002,36 @@ public:
 							+ expr->name);
 			}
 
-			//emit("SET " + std::to_string(it->second));
+			auto ait = arr_info.find(expr->name);
+			if(ait != arr_info.end()){
+				throw std::runtime_error("array: '" 
+							+ expr->name + 
+							"' being used like a variable");
+			}
+
+
 			emit("LOAD " + std::to_string(it->second));
+
+			initialized[expr->name] = true;
 
 			num_instr = 1;
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithIdExpr*>(stmt.variable.get())){
+			auto vit = var_map.find(expr->array_name);
+			if(vit == var_map.end()){
+				throw std::runtime_error("undefined array: " 
+							+ expr->array_name);
+			}
+
 			auto it = arr_info.find(expr->array_name);
 			if(it == arr_info.end()){
-				throw std::runtime_error("undefined variable: " 
-							+ expr->array_name);
+				throw std::runtime_error("variable ': " 
+							+ expr->array_name +
+							"' being used like an array");
+			}
+
+			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
+				throw std::runtime_error("loop iterator '" + expr->array_name + "' modification");
 			}
 
 			auto iit = var_map.find(expr->index);
@@ -1021,31 +1040,47 @@ public:
 							+ expr->index);
 			}
 
+			if(!initialized[expr->index]){
+				throw std::runtime_error("variable '" 
+							+ expr->index +
+							"' uninitialized");
+			}
+
 			const auto&info = it->second;
 
-			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
-
-			//emit("SET " + std::to_string(info.base_addr));
 			emit("LOADI " + std::to_string(iit->second));
 			emit("ADD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
 
+			initialized[expr->array_name] = true;
+
 			num_instr = 3;
 		}
 		else if(auto expr = dynamic_cast<ArrayAccessWithNumExpr*>(stmt.variable.get())){
+			auto vit = var_map.find(expr->array_name);
+			if(vit == var_map.end()){
+				throw std::runtime_error("undefined array: " 
+							+ expr->array_name);
+			}
+
 			auto it = arr_info.find(expr->array_name);
 			if(it == arr_info.end()){
-				throw std::runtime_error("undefined variable: " 
-							+ expr->array_name);
+				throw std::runtime_error("variable: '" 
+							+ expr->array_name +
+							"' being used like an array");
+			}
+
+			if(loop_iterators.find(expr->array_name) != loop_iterators.end()){
+				throw std::runtime_error("loop iterator '" + expr->array_name + "' modification");
 			}
 
 			const auto& info = it->second;
 
-			//std::size_t from_addr = var_map["0_" + expr->array_name + "_from"];
-
 			emit("SET " + std::to_string(expr->index));
 			emit("ADD " + std::to_string(info.base_addr));
 			emit("SUB " + std::to_string(info.from_addr));
+
+			initialized[expr->array_name] = true;
 
 			num_instr = 3;
 		}
@@ -1057,8 +1092,6 @@ public:
 		emit("STORE " + std::to_string(temp_addr));
 		emit("GET 0");
 		emit("STOREI " + std::to_string(temp_addr));
-
-		//free_temp_memory(temp);
 
 		stmt.set_num_instr(3 + num_instr);
 	}
@@ -1098,8 +1131,11 @@ public:
 		}
 
 		auto& pinfo = procedures[proc_name];
+		
 		std::size_t raddr = pinfo.rtrn_addr;
 		emit("RTRN " + std::to_string(raddr));
+
+		initialized_proc[proc_name] = true;
 
 		procedure.set_num_instr(1 + num_instr);
 	}
@@ -1188,7 +1224,6 @@ public:
 
 		if(arr_size == 0){
 			this->next_free_addr++;
-			//return this->next_free_addr - 1;
 			return temp;
 		}
 		arr_info[temp] = {next_free_addr, 0, arr_size};
@@ -1199,33 +1234,14 @@ public:
 	void free_temp_memory(std::string temp){
 		if(var_map.find(temp) == var_map.end()){
 			return;
-			//throw std::runtime_error("no such variable: " + temp);
 		}
 
 		var_map.erase(temp);
 
-		/*
-		if(arr_info.find(temp) != arr_info.end()){
-			auto&info = arr_info[temp];
-			next_free_addr -= info.to;
-			arr_info.erase(temp);
-			return;
-		}
-		*/
 		next_free_addr--;
 	}
 
 	void push_code_to_file(){
-		for(auto& proc : procedures){
-			std::cout << "procedure: " << proc.first << std::endl;
-			//auto& info = procedures[proc];
-			std::cout << "info: " << std::endl;
-			std::cout << "	proc_start: " << proc.second.proc_start << std::endl;
-			std::cout << "	rtrn_addr: " << proc.second.rtrn_addr << std::endl;
-		}
-
-
-
 		for(const auto& instr : this->instructions){
 			output_stream << instr << "\n";
 		}
@@ -1235,12 +1251,15 @@ private:
 	std::vector<std::string> instructions;
 	std::ostream& output_stream;				//output file
 	std::size_t next_free_addr;
-	
+
 	std::set<std::string> loop_iterators;
 
 	std::unordered_map<std::string, std::size_t> var_map;	//nazwa -> adres adresu
 	std::unordered_map<std::string, ArrayInfo> arr_info;
 	std::unordered_map<std::string, ProcedureInfo> procedures;
+
+	std::unordered_map<std::string, bool> initialized;
+	std::unordered_map<std::string, bool> initialized_proc;
 
 	void emit(const std::string& instruction, int64_t pos = -1){
 		if(pos == -1){
