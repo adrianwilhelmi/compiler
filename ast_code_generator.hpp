@@ -1185,8 +1185,6 @@ public:
 
 		emit("HALT");
 		program.set_num_instr(num_instr);
-
-		std::cout << "num instructions: " << num_instr << std::endl;
 	}
 
 	std::size_t alloc_mem(std::string name, std::size_t arr_size = 0){
