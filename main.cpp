@@ -1,7 +1,7 @@
 //author: Adrian Wilhelmi
 
 #include"ast.hpp"
-#include"ast_printer.hpp"
+//#include"ast_printer.hpp"
 #include"ast_code_generator.hpp"
 #include"parser.hpp"
 #include"lexer.hpp"

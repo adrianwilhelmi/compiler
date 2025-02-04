@@ -11,9 +11,6 @@
 #include<algorithm>
 #include<cctype>
 
-
-// #include<cln/cln.h>
-
 class ASTVisitor;
 
 class ASTNode{
@@ -362,15 +359,6 @@ public:
 			std::vector<std::unique_ptr<Statement>> b)
 		: head(std::move(head)), parameters(std::move(params)), body(std::move(b)) {}
 	void accept(ASTVisitor& visitor) override;
-
-	/*
-	preprocess:
-		zmien nazwy variablow z <var> na <proc_name>_<var>
-		zmien nazwy array z <arr> na <proc_name>_<arr>
-				<arr_from> na <proc_name>_<arr>_from
-				<arr_to> na <proc_name>_<arr>_to
-	*/
-
 };
 
 class Main : public ASTNode {};

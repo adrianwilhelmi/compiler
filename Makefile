@@ -10,7 +10,7 @@ lexer: lexer.l
 	flex lexer.l
 
 compiler: main.cpp ast.cpp parser.cpp lexer.cpp
-	$(CXX) $(FLAGS) -o program main.cpp ast.cpp parser.cpp lexer.cpp -lfl
+	$(CXX) $(FLAGS) -o kompilator main.cpp ast.cpp parser.cpp lexer.cpp -lfl
 	
 clean:
 	rm -f $(LEX_OUT) *.o parser.cpp parser.hpp lexer.cpp lexer.hpp
