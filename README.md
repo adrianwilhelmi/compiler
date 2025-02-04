@@ -4,8 +4,8 @@ Kod kompilatora do języka z projektu JFTT
 
 # Przygotowanie i używanie kompilatora
 
-make
-./kompilator <nazwa-pliku-wejsciowego> <nazwa-pliku-wyjsciowego>
+* make
+* ./kompilator \<nazwa-pliku-wejsciowego\> \<nazwa-pliku-wyjsciowego\>
 
 # Autor
 
