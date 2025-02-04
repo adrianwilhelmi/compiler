@@ -13,5 +13,5 @@ compiler: main.cpp ast.cpp parser.cpp lexer.cpp
 	$(CXX) $(FLAGS) -o kompilator main.cpp ast.cpp parser.cpp lexer.cpp -lfl
 	
 clean:
-	rm -f $(LEX_OUT) *.o parser.cpp parser.hpp lexer.cpp lexer.hpp
+	rm -f *.o parser.cpp parser.hpp lexer.cpp lexer.hpp
 
